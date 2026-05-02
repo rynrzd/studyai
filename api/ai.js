@@ -19,11 +19,15 @@ max_tokens: 300,
 messages: [
 {
 role: "user",
-content: req.body.message || "Salut"
+content: [
+{
+type: "text",
+text: req.body.message || "Salut"
+}
+]
 }
 ]
 }),
-});
 
 const data = await response.json();
 
