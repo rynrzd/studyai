@@ -14,7 +14,7 @@ headers: {
 "anthropic-version": "2023-06-01",
 },
 body: JSON.stringify({
-model: "claude-3-haiku-20240307",
+model: "claude-3-haiku",
 max_tokens: 300,
 messages: [
 {
