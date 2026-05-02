@@ -56,7 +56,7 @@ export default function App() {
   }, []); // runs once on mount
 
   return (
-    <>
+    <div style={{ width: "100%", maxWidth: "100%", margin: 0, padding: 0, overflowX: "hidden" }}>
       <XpPopup popup={xpPopup} />
 
       {screen === "landing"       && <Landing />}
@@ -67,6 +67,6 @@ export default function App() {
       {screen === "pricing"       && <Pricing />}
       {screen === "payment"       && <Payment />}
       {screen === "settings"      && <Settings />}
-    </>
+    </div>
   );
 }

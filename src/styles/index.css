@@ -2,9 +2,40 @@
 
 /* ── RESET ─────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; font-size: 16px; overflow-x: hidden; }
-body { margin: 0; font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; max-width: 100vw; }
-#root { overflow-x: hidden; max-width: 100vw; }
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+}
+body {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* ── MOBILE OVERRIDE — force full width on all elements ──────────────────────── */
+@media (max-width: 768px) {
+  html, body, #root {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
 button { cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s ease; border: none; touch-action: manipulation; }
 button:active { transform: scale(0.96); }
 a { touch-action: manipulation; }
@@ -168,39 +199,28 @@ select option { background: var(--card); color: var(--text); }
 }
 
 @media (max-width: 899px) {
-  /* Hide sidebar on mobile */
-  .sai-sidebar {
-    display: none !important;
-  }
+  /* Hide sidebar, show mobile chrome */
+  .sai-sidebar       { display: none !important; }
+  .sai-bottom-nav    { display: flex !important; }
+  .sai-mobile-topbar { display: flex !important; }
 
-  /* Show bottom nav on mobile */
-  .sai-bottom-nav {
-    display: flex !important;
-  }
-
-  /* Show mobile topbar on mobile */
-  .sai-mobile-topbar {
-    display: flex !important;
-  }
-
-  /* Full-width layout on mobile */
+  /* Stack layout vertically */
   .sai-layout {
     flex-direction: column !important;
-  }
-
-  /* Remove any horizontal overflow */
-  .sai-main {
-    overflow-x: hidden !important;
     width: 100% !important;
-    max-width: 100vw !important;
   }
 
-  /* Larger touch targets on mobile */
-  button {
-    min-height: 40px;
+  /* Main content: full width, no horizontal scroll */
+  .sai-main {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
   }
 
-  /* Smooth overscroll on mobile */
+  /* Larger touch targets */
+  button { min-height: 40px; }
+
+  /* Smooth overscroll inside scrollable areas */
   .sai-scroll {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
@@ -237,9 +257,6 @@ select option { background: var(--card); color: var(--text); }
   min-height: 0;
   overflow: hidden;
 }
-
-/* Global overscroll control — prevents rubber-band on all devices */
-html { overscroll-behavior: none; }
 
 /* Prevent any global horizontal overflow and rubber-band escape on mobile */
 @media (max-width: 899px) {
