@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 export default async function handler(req, res) {
 if (req.method !== "POST") {
 return res.status(405).json({ error: "Méthode non autorisée" });
@@ -14,7 +16,7 @@ headers: {
 "anthropic-version": "2023-06-01",
 },
 body: JSON.stringify({
-model: "claude-3-haiku",
+model: "claude-3-5-sonnet-20241022",
 max_tokens: 300,
 messages: [
 {
