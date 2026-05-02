@@ -1,8 +1,12 @@
 export default async function handler(req, res) {
+if (req.method !== "POST") {
+return res.status(405).json({ error: "Méthode non autorisée" });
+}
+
 const apiKey = process.env.ANTHROPIC_API_KEY;
 
 try {
-const r = await fetch("https://api.anthropic.com/v1/messages", {
+const response = await fetch("https://api.anthropic.com/v1/messages", {
 method: "POST",
 headers: {
 "Content-Type": "application/json",
@@ -11,17 +15,29 @@ headers: {
 },
 body: JSON.stringify({
 model: "claude-3-sonnet-20240229",
-max_tokens: 100,
+max_tokens: 300,
 messages: [
-{ role: "user", content: "Dis juste OK" }
+{
+role: "user",
+content: req.body.message || "Salut"
+}
 ]
 }),
 });
 
-const data = await r.text(); // IMPORTANT
-return res.status(200).json({ raw: data });
+const data = await response.json();
 
-} catch (e) {
-return res.status(500).json({ error: e.message });
+if (!response.ok) {
+console.error(data);
+return res.status(500).json({ error: "Erreur IA", details: data });
+}
+
+return res.status(200).json({
+reply: data?.content?.[0]?.text || "Pas de réponse"
+});
+
+} catch (err) {
+console.error(err);
+return res.status(500).json({ error: "Erreur serveur" });
 }
 }
