@@ -61,7 +61,6 @@ export function AppProvider({ children }) {
   const [gamification,    setGamification]   = useLS("sai_game",    {});  // { uid: { xp, badges[], quizCount, streak } }
   const [profiles,        setProfiles]       = useLS("sai_profiles",{});  // { uid: { level, languages, hasSport, grades } }
   const [xpPopup,         setXpPopup]        = useState(null); // { amount, x, y }
-  const [payPlan,         setPayPlan]        = useState(null);
   const [authMode,        setAuthMode]       = useState("login");
 
   // ── Thème ─────────────────────────────────────────────────────────────────
@@ -318,8 +317,6 @@ export function AppProvider({ children }) {
     allProgress: progress,
     // Theme
     dark, setDark,
-    // Payment
-    payPlan, setPayPlan,
     authMode, setAuthMode,
   };
 
