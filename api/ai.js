@@ -1,6 +1,9 @@
 // api/ai.js — Secure Anthropic proxy (Vercel serverless function)
 // API key stays server-side. Browser calls /api/ai, never api.anthropic.com.
 
+// Load .env for local dev. No-op in production (Vercel injects vars from dashboard).
+import "dotenv/config";
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Méthode non autorisée." });

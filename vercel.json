@@ -4,9 +4,13 @@
   "framework": "vite",
   "devCommand": "vite --port 3001",
   "functions": {
-    "api/ai.js": { "maxDuration": 30 }
+    "api/ai.js":             { "runtime": "nodejs20.x", "maxDuration": 30 },
+    "api/checkout.js":       { "runtime": "nodejs20.x", "maxDuration": 10 },
+    "api/verify-payment.js": { "runtime": "nodejs20.x", "maxDuration": 10 },
+    "api/webhook.js":        { "runtime": "nodejs20.x", "maxDuration": 10 }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)",     "destination": "/index.html" }
   ]
 }
