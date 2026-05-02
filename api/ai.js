@@ -81,7 +81,7 @@ export default async function handler(req, res) {
 
   // ── Anthropic request ─────────────────────────────────────────────────────
   const requestBody = {
-    model:  "claude-3-haiku-20240307",
+    model:  "claude-3-sonnet-20240229",
     max_tokens: 1200,
     messages:   msgArray,
   };
