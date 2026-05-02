@@ -41,7 +41,17 @@ function xpToNextLevel(xp) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export function AppProvider({ children }) {
-  const [screen,          setScreen]         = useState("landing");
+  // Initialize screen directly from localStorage — eliminates the "flash of landing page"
+  // on every refresh for logged-in users (no longer looks like a re-login).
+  const [screen, setScreen] = useState(() => {
+    try {
+      const u  = JSON.parse(localStorage.getItem("sai_user")   || "null");
+      if (!u) return "landing";
+      const fp = JSON.parse(localStorage.getItem("sai_family") || "[]");
+      if (u.plan === "famille" && fp.length > 0) return "profileselect";
+      return "chat";
+    } catch { return "landing"; }
+  });
   const [user,            setUserLS]         = useLS("sai_user",    null);
   const [chats,           setChats]          = useLS("sai_chats",   {});
   const [dark,            setDarkLS]         = useLS("sai_dark",    false);

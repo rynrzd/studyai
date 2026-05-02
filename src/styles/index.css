@@ -222,15 +222,35 @@ select option { background: var(--card); color: var(--text); }
 
 /* Fix 100vh on mobile browsers (address bar causes overflow) */
 .sai-full-height {
-  height: 100vh;           /* fallback for older browsers */
-  height: 100dvh;          /* CSS dynamic viewport height — iOS 15.4+, Chrome 108+ */
-  min-height: -webkit-fill-available; /* iOS Safari fallback */
+  height: 100vh;                   /* fallback */
+  height: -webkit-fill-available;  /* iOS Safari < 15.4: use height not min-height to avoid body scroll */
+  height: 100dvh;                  /* modern: dynamic viewport (shrinks with keyboard) */
 }
 
-/* Prevent any global horizontal overflow on mobile */
+/* Copilot full-page: proper flex height inside sai-main */
+.sai-copilot-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Prevent any global horizontal overflow and rubber-band escape on mobile */
 @media (max-width: 899px) {
   html, body, #root {
     overflow-x: hidden;
     max-width: 100vw;
+    overscroll-behavior: none;   /* stops iOS bounce from propagating to body */
+  }
+
+  /* Panels use dvh so they shrink when the keyboard opens */
+  .sai-panel-sheet {
+    max-height: 85dvh !important;
+  }
+
+  /* Chat input row — never hidden behind bottom-nav */
+  .sai-input-row {
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
   }
 }

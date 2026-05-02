@@ -198,8 +198,9 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Scrollable content */}
-        <div className="sai-scroll sai-main" style={{ flex: 1, overflow: "auto" }}>
+        {/* Scrollable content — overflow: hidden when copilot view is active so only
+            the internal message list scrolls, keeping the input pinned to the bottom */}
+        <div className="sai-scroll sai-main" style={{ flex: 1, overflow: view === "copilot" ? "hidden" : "auto", display: "flex", flexDirection: "column", minWidth: 0 }}>
           {isMobile ? renderContent(true) : renderContent(false)}
         </div>
 
@@ -1099,9 +1100,11 @@ function CopilotWidget({ messages, input, setInput, loading, send, mode, setMode
 }
 
 // ─── COPILOT FULL PAGE (mobile) ───────────────────────────────────────────────
+// Uses flex: 1 + minHeight: 0 instead of height: "100%" — the only reliable
+// way to fill a flex container on iOS Safari without escaping the viewport.
 function CopilotFullPage(props) {
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <div className="sai-copilot-page">
       <CopilotWidget {...props} />
     </div>
   );
@@ -1186,7 +1189,7 @@ function PanelOverlay({ panel, setPanel, subject, currentSubject, flashState, se
   const titles = { flashcards: "🃏 Flashcards", exam: "🧪 Mode Examen", progress: "📊 Progression", plan: "📅 Plan de Révision", badges: "🏆 Mes Badges", games: "🎮 Quiz Flash", family: "👨‍👩‍👧 Profils Famille" };
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }} onClick={e => e.target === e.currentTarget && close()}>
-      <div className="pop-in" style={{ background: "var(--card)", borderRadius: "24px 24px 0 0", padding: "22px 20px 28px", width: "100%", maxWidth: 560, maxHeight: "85vh", overflow: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.25)" }}>
+      <div className="pop-in sai-panel-sheet" style={{ background: "var(--card)", borderRadius: "24px 24px 0 0", padding: "22px 20px 28px", paddingBottom: "max(28px, calc(env(safe-area-inset-bottom) + 12px))", width: "100%", maxWidth: 560, maxHeight: "85dvh", overflow: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.25)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h2 style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 18, color: "var(--text)" }}>{titles[panel] || "📋"}</h2>
           <button onClick={close} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "5px 10px", color: "var(--text-muted)", fontSize: 13, cursor: "pointer" }}>✕</button>
