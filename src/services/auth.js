@@ -68,12 +68,11 @@ export function updateAccount(email, updates) {
   return accounts[email];
 }
 
-// ── Générer un code de vérification (console) ─────────────────────────────────
+// ── Générer un code de vérification ──────────────────────────────────────────
 export function generateVerifCode(email) {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const payload = { code, email, expires: Date.now() + 5 * 60 * 1000 };
   localStorage.setItem("sai_pending_code", JSON.stringify(payload));
-  console.log(`%c🔐 Code de vérification Study AI : ${code}`, "color:#5046e4;font-size:18px;font-weight:bold;background:#f0efff;padding:6px 12px;border-radius:8px");
   return code;
 }
 

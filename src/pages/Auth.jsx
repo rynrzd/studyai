@@ -12,6 +12,7 @@ export default function Auth() {
   const [step,           setStep]           = useState("form");
   const [form,           setForm]           = useState({ name:"", email:"", pwd:"", pwd2:"", classe:"", matiere:"", note:"" });
   const [code,           setCode]           = useState("");
+  const [verifCode,      setVerifCode]      = useState(""); // code affiché dans l'UI
   const [err,            setErr]            = useState("");
   const [loading,        setLoading]        = useState(false);
   const [countdown,      setCd]             = useState(0);
@@ -36,7 +37,8 @@ export default function Auth() {
     try {
       // Vérifie les credentials avant d'envoyer le code
       if (isLogin) login(form.email, form.pwd); // throws si invalide
-      generateVerifCode(form.email);
+      const generated = generateVerifCode(form.email);
+      setVerifCode(generated);
       setStep("code"); setCd(60);
     } catch (e) { setErr(e.message); }
     finally { setLoading(false); }
@@ -73,11 +75,19 @@ export default function Auth() {
         <button onClick={() => setScreen("landing")} style={{ background:"transparent", border:"none", color:"var(--text-muted)", fontSize:13, fontWeight:600, marginBottom:22, cursor:"pointer", padding:0 }}>← Retour</button>
         <Logo />
         <h2 style={{ fontFamily:"Space Grotesk,sans-serif", fontWeight:800, fontSize:24, color:"var(--text)", margin:"20px 0 4px", letterSpacing:"-0.4px" }}>
-          {step==="form" ? (isLogin ? "Bon retour 👋" : "Créer un compte 🚀") : step==="code" ? "Vérifie ta console 📬" : `Bienvenue ${registeredUser?.name?.split(" ")[0]} 🎉`}
+          {step==="form" ? (isLogin ? "Bon retour 👋" : "Créer un compte 🚀") : step==="code" ? "Ton code de vérification 🔐" : `Bienvenue ${registeredUser?.name?.split(" ")[0]} 🎉`}
         </h2>
-        <p style={{ color:"var(--text-muted)", fontSize:14, marginBottom:26 }}>
-          {step==="form" ? (isLogin ? "Connexion à ton compte StudyAI" : "Gratuit · Aucune CB requise") : step==="code" ? "Ouvre F12 → Console pour voir ton code de vérification" : "Ton compte est prêt. Quel accès veux-tu ?"}
+        <p style={{ color:"var(--text-muted)", fontSize:14, marginBottom: step==="code" ? 16 : 26 }}>
+          {step==="form" ? (isLogin ? "Connexion à ton compte StudyAI" : "Gratuit · Aucune CB requise") : step==="code" ? "Copie ce code et saisis-le ci-dessous pour continuer." : "Ton compte est prêt. Quel accès veux-tu ?"}
         </p>
+
+        {step==="code" && verifCode && (
+          <div style={{ background:"var(--accent-soft)", border:"2px solid var(--accent-glow)", borderRadius:18, padding:"18px", textAlign:"center", marginBottom:20 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"var(--accent)", textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Ton code</div>
+            <div style={{ fontFamily:"Space Grotesk,sans-serif", fontWeight:900, fontSize:36, letterSpacing:8, color:"var(--accent)" }}>{verifCode}</div>
+            <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:8 }}>Valable 5 minutes</div>
+          </div>
+        )}
 
         {step === "form" ? (
           <>
@@ -152,10 +162,7 @@ export default function Auth() {
           </>
         ) : (
           <>
-            <div style={{ background:"var(--accent-soft)", border:"1px solid var(--accent-glow)", borderRadius:14, padding:"13px 15px", fontSize:13, color:"var(--accent)", marginBottom:22, lineHeight:1.5 }}>
-              💡 Pour cette démo : ouvre <strong>F12 → Console</strong> dans ton navigateur pour voir le code à 6 chiffres
-            </div>
-            <Field label="Code à 6 chiffres">
+            <Field label="Saisis le code ci-dessus">
               <input maxLength={6} placeholder="••••••" value={code}
                 onChange={e => { setCode(e.target.value.replace(/\D/g,"")); setErr(""); }}
                 onKeyDown={e => e.key==="Enter" && handleVerify()}
