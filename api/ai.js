@@ -78,7 +78,7 @@ export default async function handler(req, res) {
 
   // ── Anthropic request ─────────────────────────────────────────────────────
   const requestBody = {
-    model:      "claude-3-5-sonnet-20241022",
+    model:      "claude-3-haiku-20240307",
     max_tokens: 1200,
     messages:   msgArray,
   };
@@ -100,8 +100,9 @@ export default async function handler(req, res) {
 
     if (!anthropicRes.ok) {
       const errBody = await anthropicRes.json().catch(() => ({}));
-      console.error("[api/ai] Anthropic error:", anthropicRes.status, JSON.stringify(errBody));
-      return res.status(502).json({ error: "Service IA temporairement indisponible." });
+      const detail = errBody?.error?.message || errBody?.error || JSON.stringify(errBody);
+      console.error("[api/ai] Anthropic error:", anthropicRes.status, detail);
+      return res.status(502).json({ error: `IA erreur ${anthropicRes.status}: ${detail}` });
     }
 
     const data  = await anthropicRes.json();

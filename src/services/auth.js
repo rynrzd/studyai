@@ -68,25 +68,3 @@ export function updateAccount(email, updates) {
   return accounts[email];
 }
 
-// ── Générer un code de vérification ──────────────────────────────────────────
-export function generateVerifCode(email) {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const payload = { code, email, expires: Date.now() + 5 * 60 * 1000 };
-  localStorage.setItem("sai_pending_code", JSON.stringify(payload));
-  return code;
-}
-
-// ── Vérifier le code ──────────────────────────────────────────────────────────
-export function verifyCode(email, inputCode) {
-  try {
-    const stored = JSON.parse(localStorage.getItem("sai_pending_code") || "null");
-    if (!stored) throw new Error("Aucun code en attente.");
-    if (stored.email   !== email)    throw new Error("Email ne correspond pas.");
-    if (Date.now()     >  stored.expires) throw new Error("Code expiré. Recommence.");
-    if (stored.code    !== inputCode) throw new Error("Code incorrect.");
-    localStorage.removeItem("sai_pending_code");
-    return true;
-  } catch (e) {
-    throw new Error(e.message || "Code invalide.");
-  }
-}
