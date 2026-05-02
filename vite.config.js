@@ -6,5 +6,12 @@ export default defineConfig({
   server: {
     port: 3001,
     open: true,
+    proxy: {
+      // Forward /api/* to vercel dev (port 3000) where serverless functions run
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
 })
