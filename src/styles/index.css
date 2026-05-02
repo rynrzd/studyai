@@ -1,0 +1,236 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+
+/* ── RESET ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body { margin: 0; font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; }
+button { cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s ease; border: none; }
+button:active { transform: scale(0.96); }
+input, textarea, select { font-family: 'Outfit', sans-serif; }
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+textarea::placeholder, input::placeholder { color: var(--text-muted); opacity: 0.7; }
+
+/* ── SCROLLBAR ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+main { -webkit-overflow-scrolling: touch; }
+select option { background: var(--card); color: var(--text); }
+
+/* ── CSS VARIABLES — Light theme (premium) ──────────────────────────────────── */
+:root {
+  --bg:          #F8FAFC;
+  --bg2:         #EEF2F8;
+  --card:        #ffffff;
+  --card2:       #f4f6fb;
+  --border:      #e2e8f4;
+  --shadow:      0 1px 4px rgba(80,70,228,0.07), 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-md:   0 4px 24px rgba(80,70,228,0.10), 0 1px 4px rgba(0,0,0,0.05);
+  --text:        #0f172a;
+  --text-soft:   #334155;
+  --text-muted:  #94a3b8;
+  --accent:      #4f46e5;
+  --accent2:     #7c3aed;
+  --accent-soft: rgba(79,70,229,0.08);
+  --accent-glow: rgba(79,70,229,0.20);
+  --success:     #059669;
+  --warn:        #d97706;
+  --danger:      #dc2626;
+}
+
+/* ── CSS VARIABLES — Dark theme ──────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:          #07091a;
+  --bg2:         #0b0e22;
+  --card:        #0f1420;
+  --card2:       #0d1228;
+  --border:      #1a2442;
+  --shadow:      0 1px 4px rgba(0,0,0,0.4);
+  --shadow-md:   0 4px 24px rgba(0,0,0,0.5);
+  --text:        #eaf0ff;
+  --text-soft:   #a0aec8;
+  --text-muted:  #424e70;
+  --accent:      #6366f1;
+  --accent2:     #8b5cf6;
+  --accent-soft: rgba(99,102,241,0.11);
+  --accent-glow: rgba(99,102,241,0.28);
+  --success:     #10b981;
+  --warn:        #f59e0b;
+  --danger:      #ef4444;
+}
+
+/* ── LIGHT MODE: card shadows for premium feel ───────────────────────────────── */
+:root .card-shadow,
+:root [style*="border-radius"][style*="background: var(--card)"] {
+  box-shadow: var(--shadow);
+}
+
+/* Sidebar and right column subtle shadows in light mode */
+:root [style*="borderRight"],
+:root [style*="borderLeft"] {
+  box-shadow: 1px 0 0 var(--border);
+}
+
+/* ── ANIMATIONS ─────────────────────────────────────────────────────────────── */
+@keyframes fadeUp   { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+@keyframes bounce   { 0%,80%,100%{transform:scale(0.5);opacity:0.3} 40%{transform:scale(1);opacity:1} }
+@keyframes pulse    { 0%,100%{opacity:0.4} 50%{opacity:1} }
+@keyframes slideIn  { from{transform:translateX(-100%)} to{transform:translateX(0)} }
+@keyframes popIn    { 0%{transform:scale(0.92);opacity:0} 100%{transform:scale(1);opacity:1} }
+@keyframes spin     { to{transform:rotate(360deg)} }
+@keyframes shimmer  { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+@keyframes xpPop    { 0%{transform:scale(0) translateY(0);opacity:1} 80%{transform:scale(1.2) translateY(-30px);opacity:1} 100%{transform:scale(1) translateY(-50px);opacity:0} }
+
+/* ── UTILITY CLASSES ─────────────────────────────────────────────────────────── */
+.msg-in    { animation: fadeUp 0.22s ease; }
+.pop-in    { animation: popIn 0.28s cubic-bezier(0.34,1.56,0.64,1); }
+.fade-in   { animation: fadeIn 0.3s ease; }
+.slide-in  { animation: slideIn 0.3s cubic-bezier(0.4,0,0.2,1); }
+
+.skeleton {
+  background: linear-gradient(90deg, var(--card2) 25%, var(--border) 50%, var(--card2) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* ── FLASHCARD FLIP ──────────────────────────────────────────────────────────── */
+.card-flip { perspective: 1000px; }
+.card-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.55s cubic-bezier(0.4,0,0.2,1);
+  transform-style: preserve-3d;
+}
+.card-flip-inner.flipped { transform: rotateY(180deg); }
+.card-front, .card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 20px;
+}
+.card-back { transform: rotateY(180deg); }
+
+/* ── PROGRESS BAR ────────────────────────────────────────────────────────────── */
+.progress-bar {
+  height: 7px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── XP POPUP ────────────────────────────────────────────────────────────────── */
+.xp-popup {
+  position: fixed;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 18px;
+  color: #f59e0b;
+  text-shadow: 0 2px 8px rgba(245,158,11,0.4);
+  animation: xpPop 1.2s ease forwards;
+  z-index: 9999;
+}
+
+/* ── RESPONSIVE — CSS-first, JS hook as supplement ──────────────────────────── */
+
+/* Desktop sidebar: always visible above 900px */
+.sai-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  min-width: 220px;
+  flex-shrink: 0;
+}
+
+/* Mobile bottom nav: hidden on desktop */
+.sai-bottom-nav {
+  display: none;
+}
+
+/* Mobile top bar: hidden on desktop */
+.sai-mobile-topbar {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  /* Hide sidebar on mobile */
+  .sai-sidebar {
+    display: none !important;
+  }
+
+  /* Show bottom nav on mobile */
+  .sai-bottom-nav {
+    display: flex !important;
+  }
+
+  /* Show mobile topbar on mobile */
+  .sai-mobile-topbar {
+    display: flex !important;
+  }
+
+  /* Full-width layout on mobile */
+  .sai-layout {
+    flex-direction: column !important;
+  }
+
+  /* Remove any horizontal overflow */
+  .sai-main {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+
+  /* Larger touch targets on mobile */
+  button {
+    min-height: 40px;
+  }
+
+  /* Smooth overscroll on mobile */
+  .sai-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Tablet adjustments (900–1200px) */
+@media (min-width: 900px) and (max-width: 1199px) {
+  .sai-sidebar {
+    width: 180px;
+    min-width: 180px;
+  }
+}
+
+/* Mobile-specific safe areas (iOS notch / home indicator) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .sai-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Fix 100vh on mobile browsers (address bar causes overflow) */
+.sai-full-height {
+  height: 100vh;           /* fallback for older browsers */
+  height: 100dvh;          /* CSS dynamic viewport height — iOS 15.4+, Chrome 108+ */
+  min-height: -webkit-fill-available; /* iOS Safari fallback */
+}
+
+/* Prevent any global horizontal overflow on mobile */
+@media (max-width: 899px) {
+  html, body, #root {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+}
