@@ -3,8 +3,10 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "devCommand": "vite --port 3001",
+  "functions": {
+    "api/ai.js": { "maxDuration": 30 }
+  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)",     "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

@@ -23,7 +23,7 @@ async function callClaude({ systemPrompt, messages, imageBase64 }) {
   }
 
   const data = await res.json();
-  return data.text || "Aucune réponse reçue.";
+  return data.reply || "Aucune réponse reçue.";
 }
 
 // Keep export name identical so Chat.jsx requires zero changes

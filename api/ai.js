@@ -1,141 +1,113 @@
 // api/ai.js — Secure Anthropic proxy (Vercel serverless function)
-// The API key never leaves the server. The browser only calls /api/ai.
-
-// In-memory rate limit — resets per serverless instance.
-// For persistent cross-instance rate limiting, swap this for Vercel KV or Redis.
-const rateLimitStore = new Map();
-const WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const MAX_REQUESTS = 60;           // per IP per hour
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  const rec = rateLimitStore.get(ip) || { count: 0, start: now };
-  if (now - rec.start > WINDOW_MS) {
-    rateLimitStore.set(ip, { count: 1, start: now });
-    return true;
-  }
-  if (rec.count >= MAX_REQUESTS) return false;
-  rec.count++;
-  rateLimitStore.set(ip, rec);
-  return true;
-}
+// API key stays server-side. Browser calls /api/ai, never api.anthropic.com.
 
 export default async function handler(req, res) {
-  // CORS — only allow same origin
-  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(204).end();
-
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Méthode non autorisée." });
   }
 
-  // Rate limiting by IP
-  const ip =
-    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
-    req.socket?.remoteAddress ||
-    "unknown";
-
-  if (!checkRateLimit(ip)) {
-    return res
-      .status(429)
-      .json({ error: "Trop de requêtes. Réessaie dans une heure." });
+  // ── API key check ─────────────────────────────────────────────────────────
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error("[api/ai] ANTHROPIC_API_KEY manquante dans les variables d'environnement Vercel.");
+    return res.status(500).json({ error: "Service IA indisponible." });
   }
 
-  const { systemPrompt, messages, imageBase64 } = req.body || {};
-
-  // ── Input validation ──────────────────────────────────────────────────────
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: "Requête invalide." });
+  // ── Parse body ────────────────────────────────────────────────────────────
+  // Vercel auto-parses JSON when Content-Type is application/json.
+  // Manual fallback covers edge cases where body parser is bypassed.
+  let body = req.body;
+  if (!body || typeof body !== "object") {
+    try {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    } catch {
+      return res.status(400).json({ error: "Corps de requête invalide." });
+    }
   }
-  if (messages.length > 60) {
-    return res.status(400).json({ error: "Historique trop long." });
+
+  const { systemPrompt, messages, message, imageBase64 } = body;
+
+  // ── Build messages array ──────────────────────────────────────────────────
+  // Accepts both { messages } array (full conversation) and { message } string (simple).
+  let msgArray;
+  if (Array.isArray(messages) && messages.length > 0) {
+    if (messages.length > 60) {
+      return res.status(400).json({ error: "Historique trop long." });
+    }
+    msgArray = messages.map((m) => ({
+      role:    m.role === "user" ? "user" : "assistant",
+      content: String(m.content || "").slice(0, 12000),
+    }));
+  } else if (typeof message === "string" && message.trim()) {
+    msgArray = [{ role: "user", content: message.trim().slice(0, 12000) }];
+  } else {
+    return res.status(400).json({ error: "Message requis." });
   }
 
-  // Sanitize messages — enforce types and cap lengths
-  const sanitizedMessages = messages.map((m) => ({
-    role: m.role === "user" ? "user" : "assistant",
-    content: String(m.content || "").slice(0, 12000),
-  }));
-
-  const totalChars = sanitizedMessages.reduce(
-    (s, m) => s + m.content.length,
-    0
-  );
+  // ── Payload size guard ────────────────────────────────────────────────────
+  const totalChars = msgArray.reduce((s, m) => s + String(m.content).length, 0);
   if (totalChars > 120000) {
     return res.status(400).json({ error: "Payload trop volumineux." });
   }
 
-  const sanitizedSystem = String(systemPrompt || "").slice(0, 6000);
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.error("[api/ai] ANTHROPIC_API_KEY manquante.");
-    return res
-      .status(500)
-      .json({ error: "Service temporairement indisponible." });
+  // ── Attach image to last user message (optional) ──────────────────────────
+  if (imageBase64 && typeof imageBase64 === "string") {
+    const last = msgArray[msgArray.length - 1];
+    if (last.role === "user") {
+      msgArray[msgArray.length - 1] = {
+        role: "user",
+        content: [
+          {
+            type:   "image",
+            source: {
+              type:       "base64",
+              media_type: "image/jpeg",
+              data:       imageBase64.slice(0, 5 * 1024 * 1024),
+            },
+          },
+          {
+            type: "text",
+            text: String(last.content) || "Analyse ce document scolaire.",
+          },
+        ],
+      };
+    }
   }
 
-  // ── Build last message (with optional image) ───────────────────────────────
-  const lastText =
-    sanitizedMessages[sanitizedMessages.length - 1]?.content || "";
-  const claudeMessages = [
-    ...sanitizedMessages.slice(0, -1),
-    {
-      role: "user",
-      content: imageBase64
-        ? [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: "image/jpeg",
-                data: String(imageBase64).slice(0, 5 * 1024 * 1024), // 5 MB max
-              },
-            },
-            {
-              type: "text",
-              text: lastText || "Analyse ce document scolaire.",
-            },
-          ]
-        : lastText,
-    },
-  ];
+  // ── Anthropic request ─────────────────────────────────────────────────────
+  const requestBody = {
+    model:      "claude-sonnet-4-6",
+    max_tokens: 1200,
+    messages:   msgArray,
+  };
 
-  // ── Call Anthropic (server-side only) ──────────────────────────────────────
+  // Only include system prompt when non-empty (empty string causes Anthropic errors)
+  const system = String(systemPrompt || "").trim();
+  if (system) requestBody.system = system.slice(0, 6000);
+
   try {
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
+      method:  "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
+        "Content-Type":      "application/json",
+        "x-api-key":         apiKey,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1200,
-        system: sanitizedSystem,
-        messages: claudeMessages,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!anthropicRes.ok) {
       const errBody = await anthropicRes.json().catch(() => ({}));
-      // Log internally, never expose Anthropic details to client
-      console.error(
-        "[api/ai] Anthropic error:",
-        anthropicRes.status,
-        errBody?.error?.type
-      );
-      return res
-        .status(502)
-        .json({ error: "Service IA temporairement indisponible." });
+      console.error("[api/ai] Anthropic error:", anthropicRes.status, errBody?.error?.type);
+      return res.status(502).json({ error: "Service IA temporairement indisponible." });
     }
 
-    const data = await anthropicRes.json();
-    const text = data?.content?.[0]?.text || "Aucune réponse reçue.";
-    return res.status(200).json({ text });
+    const data  = await anthropicRes.json();
+    const reply = data?.content?.[0]?.text || "Aucune réponse reçue.";
+    return res.status(200).json({ reply });
+
   } catch (err) {
     console.error("[api/ai] Fetch error:", err.message);
     return res.status(500).json({ error: "Une erreur est survenue." });
