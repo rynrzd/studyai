@@ -10,12 +10,12 @@ export default function Landing() {
   return (
     <div style={{ minHeight:"100vh", display:"flex", flexDirection:"column", background:"var(--bg)" }}>
       {/* Nav */}
-      <nav style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 26px", background:"var(--card)", borderBottom:"1px solid var(--border)" }}>
+      <nav style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", background:"var(--card)", borderBottom:"1px solid var(--border)", flexWrap:"wrap", gap:8 }}>
         <Logo />
-        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-          <button onClick={() => setDark(!dark)} style={{ background:"var(--card2)", border:"1px solid var(--border)", borderRadius:10, padding:"7px 10px", fontSize:15, cursor:"pointer" }}>{dark?"☀️":"🌙"}</button>
-          <Btn ghost onClick={() => go("login")}>Connexion</Btn>
-          <Btn primary onClick={() => go("signup")}>S'inscrire →</Btn>
+        <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"nowrap" }}>
+          <button onClick={() => setDark(!dark)} style={{ background:"var(--card2)", border:"1px solid var(--border)", borderRadius:10, padding:"7px 10px", fontSize:15, cursor:"pointer", flexShrink:0 }}>{dark?"☀️":"🌙"}</button>
+          <Btn ghost sm onClick={() => go("login")}>Connexion</Btn>
+          <Btn primary sm onClick={() => go("signup")}>S'inscrire →</Btn>
         </div>
       </nav>
 

@@ -2,10 +2,12 @@
 
 /* ── RESET ─────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; font-size: 16px; }
-body { margin: 0; font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; }
-button { cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s ease; border: none; }
+html { scroll-behavior: smooth; font-size: 16px; overflow-x: hidden; }
+body { margin: 0; font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; max-width: 100vw; }
+#root { overflow-x: hidden; max-width: 100vw; }
+button { cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s ease; border: none; touch-action: manipulation; }
 button:active { transform: scale(0.96); }
+a { touch-action: manipulation; }
 input, textarea, select { font-family: 'Outfit', sans-serif; }
 input:focus, textarea:focus, select:focus {
   outline: none;
@@ -236,12 +238,13 @@ select option { background: var(--card); color: var(--text); }
   overflow: hidden;
 }
 
+/* Global overscroll control — prevents rubber-band on all devices */
+html { overscroll-behavior: none; }
+
 /* Prevent any global horizontal overflow and rubber-band escape on mobile */
 @media (max-width: 899px) {
   html, body, #root {
-    overflow-x: hidden;
-    max-width: 100vw;
-    overscroll-behavior: none;   /* stops iOS bounce from propagating to body */
+    overscroll-behavior: none;
   }
 
   /* Panels use dvh so they shrink when the keyboard opens */
@@ -254,3 +257,30 @@ select option { background: var(--card); color: var(--text); }
     padding-bottom: max(10px, env(safe-area-inset-bottom));
   }
 }
+
+/* ── RESPONSIVE PAGE PADDING ────────────────────────────────────────────────── */
+/* All page-level content containers use this class for responsive padding */
+.sai-page {
+  padding: 28px 32px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (max-width: 899px) {
+  .sai-page {
+    padding: 16px 14px 80px; /* bottom: clear bottom-nav */
+    max-width: 100%;
+  }
+}
+
+/* ── ALL VIEWS: no content wider than viewport ──────────────────────────────── */
+.sai-main * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Exception: images/icons can still define their own sizes */
+.sai-main img,
+.sai-main canvas,
+.sai-main svg { max-width: 100%; }

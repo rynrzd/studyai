@@ -152,13 +152,13 @@ export default function Chat() {
     <>
       {view === "home" && isParentMode && <ParentDashboard familyProfiles={familyProfiles} allProfiles={allProfiles} allGameData={allGameData} allProgress={allProgress} isMobile={mobile} />}
       {view === "home" && !isParentMode && <HomeContent {...commonViewProps} isMobile={mobile} />}
-      {view === "subject"  && activeSubjectId && <SubjectWorkspace subjectId={activeSubjectId} {...commonViewProps} />}
+      {view === "subject"  && activeSubjectId && <SubjectWorkspace subjectId={activeSubjectId} {...commonViewProps} isMobile={mobile} />}
       {view === "copilot"  && <CopilotFullPage {...copilotProps} />}
-      {view === "progress" && <ProgressPageView progress={progress} addNote={addNote} game={game} activeSubjects={activeSubjects} onAskAI={q => { setView("copilot"); setMode("cours"); setTimeout(() => send(q), mobile ? 200 : 100); }} />}
-      {view === "badges"   && <BadgesPageView game={game} isPaid={isPaid} setScreen={setScreen} />}
-      {view === "planner"  && <PlannerPageView {...commonViewProps} />}
-      {view === "games"    && <GamesPageView subject={subject} addXP={addXP} isPaid={isPaid} setScreen={setScreen} />}
-      {view === "stats"    && <StatsPageView progress={progress} game={game} activeSubjects={activeSubjects} />}
+      {view === "progress" && <ProgressPageView progress={progress} addNote={addNote} game={game} activeSubjects={activeSubjects} isMobile={mobile} onAskAI={q => { setView("copilot"); setMode("cours"); setTimeout(() => send(q), mobile ? 200 : 100); }} />}
+      {view === "badges"   && <BadgesPageView game={game} isPaid={isPaid} setScreen={setScreen} isMobile={mobile} />}
+      {view === "planner"  && <PlannerPageView {...commonViewProps} isMobile={mobile} />}
+      {view === "games"    && <GamesPageView subject={subject} addXP={addXP} isPaid={isPaid} setScreen={setScreen} isMobile={mobile} />}
+      {view === "stats"    && <StatsPageView progress={progress} game={game} activeSubjects={activeSubjects} isMobile={mobile} />}
     </>
   );
 
@@ -816,7 +816,7 @@ function PremiumIntelligenceCard({ grades, subjects, setPanel, setView, isMobile
 }
 
 // ─── SUBJECT WORKSPACE ────────────────────────────────────────────────────────
-function SubjectWorkspace({ subjectId, progress, game, startFlashcards, startExam, send, setPanel, addXP, setView, currentUser, messages, loading, input, setInput, clearMessages, copy, copied, qLeft, aiName, isPaid, isGuest, unlockBadge, setScreen }) {
+function SubjectWorkspace({ subjectId, progress, game, startFlashcards, startExam, send, setPanel, addXP, setView, currentUser, messages, loading, input, setInput, clearMessages, copy, copied, qLeft, aiName, isPaid, isGuest, unlockBadge, setScreen, isMobile }) {
   const { effectiveProfile } = useApp();
   const subEndRef = useRef(null);
   const [showBrevetExam, setShowBrevetExam] = useState(false);
@@ -849,7 +849,7 @@ function SubjectWorkspace({ subjectId, progress, game, startFlashcards, startExa
   ].filter(Boolean)[0];
 
   if (showBrevetExam) return (
-    <div style={{ padding: "28px 32px", maxWidth: 800, margin: "0 auto" }} className="fade-in">
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: 800, margin: "0 auto", width: "100%" }} className="fade-in">
       <button onClick={() => setShowBrevetExam(false)}
         style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 13, fontWeight: 600, marginBottom: 20, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6 }}>
         ← Retour à {s.label}
@@ -868,7 +868,7 @@ function SubjectWorkspace({ subjectId, progress, game, startFlashcards, startExa
   );
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 800, margin: "0 auto" }} className="fade-in">
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: 800, margin: "0 auto", width: "100%" }} className="fade-in">
       {/* Back */}
       <button onClick={() => setView("home")}
         style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 13, fontWeight: 600, marginBottom: 20, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6 }}>
@@ -881,7 +881,7 @@ function SubjectWorkspace({ subjectId, progress, game, startFlashcards, startExa
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 22, color: "var(--text)", marginBottom: 4 }}>{s.label}</div>
           <div style={{ fontSize: 13, color: masteryColor, fontWeight: 700, marginBottom: 8 }}>{masteryLabel} · {mastery}%{grade !== undefined ? ` · Moyenne ${grade}/20` : ""}{sessions > 0 ? ` · ${sessions} session${sessions > 1 ? "s" : ""}` : ""}</div>
-          <div style={{ height: 6, background: "var(--border)", borderRadius: 6, overflow: "hidden", maxWidth: 300 }}>
+          <div style={{ height: 6, background: "var(--border)", borderRadius: 6, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${mastery}%`, background: `linear-gradient(90deg,${s.color},${s.color}88)`, transition: "width 0.7s" }} />
           </div>
         </div>
@@ -902,10 +902,10 @@ function SubjectWorkspace({ subjectId, progress, game, startFlashcards, startExa
 
       {/* Practice tools */}
       <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 16, color: "var(--text)", marginBottom: 14 }}>Outils de pratique</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,1fr)", gap: 12, marginBottom: 24 }}>
         {tools.map((t, i) => (
           <button key={i} onClick={t.fn}
-            style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 18, padding: "20px", textAlign: "left", cursor: "pointer", transition: "all 0.18s" }}
+            style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 18, padding: isMobile ? "16px" : "20px", textAlign: "left", cursor: "pointer", transition: "all 0.18s" }}
             onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 8px 24px ${s.color}20`; e.currentTarget.style.borderColor = s.color + "40"; }}
             onMouseOut={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; e.currentTarget.style.borderColor = "var(--border)"; }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>{t.icon}</div>
@@ -1453,7 +1453,7 @@ function ExamUI({ state, addXP, unlockBadge, onAskAI, onClose, isPaid, setScreen
 }
 
 // ─── PROGRESS PAGE VIEW ───────────────────────────────────────────────────────
-function ProgressPageView({ progress, game, onAskAI, compact, activeSubjects: propSubjects }) {
+function ProgressPageView({ progress, game, onAskAI, compact, activeSubjects: propSubjects, isMobile }) {
   const { activeSubjects: ctxSubjects, effectiveProfile, setScreen } = useApp();
   const subjects = propSubjects || ctxSubjects;
   const grades = effectiveProfile?.grades || {};
@@ -1467,7 +1467,7 @@ function ProgressPageView({ progress, game, onAskAI, compact, activeSubjects: pr
   const totalSessions = Object.values(progress).reduce((s, p) => s + (p.sessions || 0), 0);
 
   return (
-    <div style={{ padding: compact ? "0" : "28px 32px", maxWidth: compact ? "none" : 800, margin: "0 auto" }}>
+    <div style={{ padding: compact ? "0" : isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: compact ? "none" : 800, margin: "0 auto", width: "100%" }}>
       {!compact && <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text)", marginBottom: 20 }}>📊 Progression</div>}
 
       {/* Summary stats */}
@@ -1544,11 +1544,11 @@ function ProgressPageView({ progress, game, onAskAI, compact, activeSubjects: pr
 }
 
 // ─── PLANNER PAGE VIEW ────────────────────────────────────────────────────────
-function PlannerPageView({ progress, genContent, genLoading, handleGenPlan, handleGenExercises, onGenPlan, onGenExercises, subject, examDates, saveExamDates, compact }) {
+function PlannerPageView({ progress, genContent, genLoading, handleGenPlan, handleGenExercises, onGenPlan, onGenExercises, subject, examDates, saveExamDates, compact, isMobile }) {
   const genP = onGenPlan || handleGenPlan;
   const genE = onGenExercises || handleGenExercises;
   return (
-    <div style={{ padding: compact ? "0" : "28px 32px", maxWidth: compact ? "none" : 800, margin: "0 auto" }}>
+    <div style={{ padding: compact ? "0" : isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: compact ? "none" : 800, margin: "0 auto", width: "100%" }}>
       {!compact && <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text)", marginBottom: 20 }}>📅 Plan de Révision</div>}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <Btn primary loading={genLoading} onClick={genP}>📅 Générer mon planning</Btn>
@@ -1591,7 +1591,7 @@ function PlannerPageView({ progress, genContent, genLoading, handleGenPlan, hand
 }
 
 // ─── BADGES PAGE VIEW ─────────────────────────────────────────────────────────
-function BadgesPageView({ game, compact, isPaid, setScreen }) {
+function BadgesPageView({ game, compact, isPaid, setScreen, isMobile }) {
   const FREE_BADGES = [
     { id: "first_msg",    icon: "💬", label: "Premier pas",     desc: "Premier message envoyé"         },
     { id: "quiz_5",       icon: "🎯", label: "Quizmaster",      desc: "5 quiz complétés"               },
@@ -1657,7 +1657,7 @@ function BadgesPageView({ game, compact, isPaid, setScreen }) {
   const totalCount = FREE_BADGES.length + PREMIUM_BADGES.length + HIDDEN_BADGES.length;
 
   return (
-    <div style={{ padding: compact ? "0" : "28px 32px", maxWidth: compact ? "none" : 800, margin: "0 auto" }}>
+    <div style={{ padding: compact ? "0" : isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: compact ? "none" : 800, margin: "0 auto", width: "100%" }}>
       {!compact && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text)" }}>🏆 Mes Badges</div>
@@ -1703,7 +1703,7 @@ const GAME_CATALOG = [
   { id: "match",   icon: "🔗", label: "Associer",        desc: "Relie chaque terme à sa définition",   xp: 12,  premium: true,  color: "#8b5cf6" },
 ];
 
-function GamesPageView({ subject, addXP, isPaid, setScreen }) {
+function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
   const [activeGame, setActiveGame] = useState(null);
 
   if (activeGame) {
@@ -1716,7 +1716,7 @@ function GamesPageView({ subject, addXP, isPaid, setScreen }) {
   }
 
   return (
-    <div style={{ padding: "28px 24px", maxWidth: 700, margin: "0 auto" }} className="fade-in">
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 24px", maxWidth: 700, margin: "0 auto", width: "100%" }} className="fade-in">
       <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 22, color: "var(--text)", marginBottom: 6 }}>🎮 Mini-Jeux</div>
       <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
         Joue pour gagner de l'XP — les abonnés Premium profitent de {isPaid ? "tous les jeux débloqués 🔓" : "5 jeux (4 en Premium 🔒)"}
@@ -2135,7 +2135,7 @@ function MatchGame({ subject, addXP, onBack }) {
 }
 
 // ─── STATS PAGE VIEW ──────────────────────────────────────────────────────────
-function StatsPageView({ progress, game }) {
+function StatsPageView({ progress, game, isMobile }) {
   const { effectiveProfile, setScreen } = useApp();
   const info = lvlInfo(game.xp);
   const sessions = Object.values(progress).reduce((s, p) => s + (p.sessions || 0), 0);
@@ -2148,7 +2148,7 @@ function StatsPageView({ progress, game }) {
   const activeDays = Object.keys(log).length;
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 800, margin: "0 auto" }}>
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: 800, margin: "0 auto", width: "100%" }}>
       <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text)", marginBottom: 20 }}>📈 Statistiques</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12, marginBottom: 20 }}>
         {[
