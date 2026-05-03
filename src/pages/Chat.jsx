@@ -182,6 +182,7 @@ export default function Chat() {
             {game.streak > 0 && <span style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 20, padding: "4px 9px", fontSize: 12, fontWeight: 700, color: "var(--warn)" }}>🔥 {game.streak}</span>}
             <span style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-glow)", borderRadius: 20, padding: "4px 9px", fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>⭐ {game.xp}</span>
             <button onClick={() => setDark(!dark)} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "6px 9px", fontSize: 14 }}>{dark ? "☀️" : "🌙"}</button>
+            {currentUser && <button onClick={() => setScreen("settings")} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "6px 9px", fontSize: 14 }}>⚙️</button>}
             {/* Family mode: profile switch chip */}
             {isFamilyMode && currentUser && (
               <button onClick={() => setScreen("profileselect")}
@@ -206,7 +207,7 @@ export default function Chat() {
 
         {/* Mobile bottom nav — hidden on desktop via CSS .sai-bottom-nav */}
         <div className="sai-bottom-nav" style={{ background: "var(--card)", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
-          <MobileNav view={view} setView={setView} />
+          <MobileNav view={view} setView={setView} setScreen={setScreen} />
         </div>
       </div>
     </div>
@@ -366,20 +367,57 @@ function MobileTopbar({ game, dark, setDark, currentUser, view }) {
 }
 
 // ─── MOBILE BOTTOM NAV ────────────────────────────────────────────────────────
-function MobileNav({ view, setView }) {
+function MobileNav({ view, setView, setScreen }) {
+  const [showMore, setShowMore] = useState(false);
+
   const tabs = [
     { id: "home",     icon: "🏠", label: "Accueil"  },
-    { id: "subject",  icon: "📚", label: "Matières" },
     { id: "copilot",  icon: "✦",  label: "IA"       },
-    { id: "planner",  icon: "📅", label: "Révisions"},
+    { id: "games",    icon: "🎮", label: "Jeux"     },
     { id: "progress", icon: "📊", label: "Progrès"  },
+    { id: "more",     icon: "⋯",  label: "Plus"     },
   ];
+
+  const moreItems = [
+    { icon: "📚", label: "Matières",   action: () => setView("home")               },
+    { icon: "📅", label: "Révisions",  action: () => setView("planner")             },
+    { icon: "🏆", label: "Badges",     action: () => setView("badges")              },
+    { icon: "📈", label: "Stats",      action: () => setView("stats")               },
+    { icon: "⚙️", label: "Paramètres",action: () => setScreen?.("settings")        },
+  ];
+
+  const moreViewIds = ["subject", "planner", "badges", "stats"];
+  const isMoreActive = moreViewIds.includes(view);
+
   return (
     <>
+      {showMore && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.45)" }}
+          onClick={() => setShowMore(false)}>
+          <div style={{ position: "absolute", bottom: 56, left: 0, right: 0, background: "var(--card)", borderRadius: "20px 20px 0 0", padding: "14px 14px 8px", boxShadow: "0 -4px 24px rgba(0,0,0,0.15)" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, background: "var(--border)", borderRadius: 2, margin: "0 auto 14px" }} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, paddingBottom: 6 }}>
+              {moreItems.map((item, i) => (
+                <button key={i} onClick={() => { setShowMore(false); item.action(); }}
+                  style={{ padding: "12px 4px 10px", background: "var(--card2)", borderRadius: 14, border: "1px solid var(--border)", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, color: "var(--text-muted)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                  <span style={{ fontSize: 22 }}>{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {tabs.map((t, i) => {
-        const active = t.id === view || (t.id === "subject" && (view === "subject" || view === "home"));
+        const active = t.id === "more"
+          ? (showMore || isMoreActive)
+          : t.id === view || (t.id === "home" && view === "home");
         return (
-          <button key={i} onClick={() => t.id === "subject" ? setView("home") : setView(t.id)}
+          <button key={i} onClick={() => {
+            if (t.id === "more") { setShowMore(s => !s); }
+            else { setShowMore(false); setView(t.id); }
+          }}
             style={{ flex: 1, minHeight: 56, padding: "8px 4px 6px", border: "none", background: "transparent", color: active ? "var(--accent)" : "var(--text-muted)", fontSize: 10, fontWeight: active ? 700 : 500, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, WebkitTapHighlightColor: "transparent" }}>
             <span style={{ fontSize: 20, lineHeight: 1 }}>{t.icon}</span>
             <span style={{ fontSize: 10 }}>{t.label}</span>
@@ -515,7 +553,7 @@ function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, st
   const lastActive = subjects.filter(s => (progress[s.id]?.sessions || 0) > 0).sort((a, b) => (progress[b.id]?.sessions || 0) - (progress[a.id]?.sessions || 0))[0];
 
   return (
-    <div style={{ padding: isMobile ? "16px 14px 20px" : "28px 32px", maxWidth: 900, margin: "0 auto", width: "100%" }} className="fade-in">
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: 900, margin: "0 auto", width: "100%" }} className="fade-in">
 
       {/* Hero card */}
       <div style={{ background: "linear-gradient(135deg,var(--accent),var(--accent2))", borderRadius: 24, padding: isMobile ? "22px 20px" : "28px 32px", color: "#fff", marginBottom: 20, position: "relative", overflow: "hidden" }}>
@@ -539,13 +577,34 @@ function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, st
                 ▶ Continuer {lastActive.label}
               </button>
             )}
-            <button onClick={() => send(dailyChallenge.q)}
-              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: 12, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-              🎯 Défi du jour +{dailyChallenge.xp}XP
-            </button>
+            {!isMobile && (
+              <button onClick={() => send(dailyChallenge.q)}
+                style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: 12, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                🎯 Défi du jour +{dailyChallenge.xp}XP
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Mobile daily challenge card — big tappable, XP visible */}
+      {isMobile && (
+        <div style={{ marginBottom: 16, borderRadius: 20, overflow: "hidden", border: "1.5px solid rgba(245,158,11,0.3)", background: "linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.04))" }}>
+          <button onClick={() => send(dailyChallenge.q)} style={{ width: "100%", padding: "18px 20px", textAlign: "left", background: "transparent", border: "none", cursor: "pointer" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 13, background: "linear-gradient(135deg,#f59e0b,#ef4444)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🎯</div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text)" }}>Défi du jour</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>+{dailyChallenge.xp} XP garanti</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text-soft)", lineHeight: 1.55, marginBottom: 14 }}>{dailyChallenge.q}</div>
+            <div style={{ background: "linear-gradient(135deg,#f59e0b,#f97316)", color: "#fff", borderRadius: 14, padding: "13px 20px", textAlign: "center", fontWeight: 800, fontSize: 14 }}>
+              Relever le défi →
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* First-visit notes personalization card */}
       {!isGuest && !isProf && !hasAnyNotes && (
@@ -575,7 +634,14 @@ function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, st
             <div style={{ fontSize: isMobile ? 20 : 24, marginBottom: 4 }}>{m.icon}</div>
             <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: isMobile ? 18 : 22, color: "var(--text)" }}>{m.val}</div>
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{m.sub}</div>
-            {i === 0 && <div style={{ marginTop: 8, height: 3, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}><div style={{ height: "100%", width: `${m.pct}%`, background: `linear-gradient(90deg,${m.color},#f97316)`, transition: "width 0.7s" }} /></div>}
+            {i === 0 && (
+              <>
+                <div style={{ marginTop: 8, height: isMobile ? 5 : 3, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${m.pct}%`, background: `linear-gradient(90deg,${m.color},#f97316)`, transition: "width 0.7s" }} />
+                </div>
+                {isMobile && <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>{info.xpNext} XP → niv.{info.level + 1}</div>}
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -854,12 +920,12 @@ function SubjectWorkspace({ subjectId, progress, game, startFlashcards, startExa
         style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 13, fontWeight: 600, marginBottom: 20, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6 }}>
         ← Retour à {s.label}
       </button>
-      <div style={{ background: "var(--card)", border: `1px solid ${s.color}25`, borderRadius: 20, padding: "22px 24px" }}>
+      <div style={{ background: "var(--card)", border: `1px solid ${s.color}25`, borderRadius: 20, padding: isMobile ? "16px" : "22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
           <div style={{ width: 44, height: 44, borderRadius: 14, background: s.color + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>📝</div>
-          <div>
-            <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 18, color: "var(--text)" }}>{currentUser?.classe === "terminale" ? "Mode BAC" : "Mode Brevet"} — {s.label}</div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>Questions officielles · 25 minutes · Corrections automatiques</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: isMobile ? 16 : 18, color: "var(--text)" }}>{currentUser?.classe === "terminale" ? "Mode BAC" : "Mode Brevet"} — {s.label}</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Questions officielles · corrections auto</div>
           </div>
         </div>
         <StructuredExamPanel subjectId={subjectId} subjectLabel={s.label} onClose={() => setShowBrevetExam(false)} addXP={addXP} unlockBadge={unlockBadge} isPaid={isPaid} setScreen={setScreen} />
@@ -1189,7 +1255,8 @@ function PanelOverlay({ panel, setPanel, subject, currentSubject, flashState, se
   const titles = { flashcards: "🃏 Flashcards", exam: "🧪 Mode Examen", progress: "📊 Progression", plan: "📅 Plan de Révision", badges: "🏆 Mes Badges", games: "🎮 Quiz Flash", family: "👨‍👩‍👧 Profils Famille" };
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }} onClick={e => e.target === e.currentTarget && close()}>
-      <div className="pop-in sai-panel-sheet" style={{ background: "var(--card)", borderRadius: "24px 24px 0 0", padding: "22px 20px 28px", paddingBottom: "max(28px, calc(env(safe-area-inset-bottom) + 12px))", width: "100%", maxWidth: 560, maxHeight: "85dvh", overflow: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.25)" }}>
+      <div className="pop-in sai-panel-sheet" style={{ background: "var(--card)", borderRadius: "24px 24px 0 0", padding: "22px 20px 28px", paddingBottom: "max(28px, calc(env(safe-area-inset-bottom) + 12px))", width: "100%", maxWidth: 560, maxHeight: "90dvh", overflow: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.25)" }}>
+        <div style={{ width: 40, height: 4, background: "var(--border)", borderRadius: 2, margin: "-6px auto 14px" }} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h2 style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 18, color: "var(--text)" }}>{titles[panel] || "📋"}</h2>
           <button onClick={close} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: "5px 10px", color: "var(--text-muted)", fontSize: 13, cursor: "pointer" }}>✕</button>
@@ -1236,7 +1303,7 @@ function FlashcardsUI({ state, setState, subject, addXP, onClose }) {
       </div>
       <div style={{ display: "flex", gap: 10 }}>
         <Btn ghost full onClick={() => setState(p => ({ ...p, idx: p.idx + 1, flipped: false }))}>⏭ Suivante</Btn>
-        <Btn primary full onClick={() => { addXP(15); setState(p => ({ ...p, idx: p.idx + 1, flipped: false })); }}>✅ Mémorisée (+15 XP)</Btn>
+        <Btn primary full onClick={() => { addXP(8); setState(p => ({ ...p, idx: p.idx + 1, flipped: false })); }}>✅ Mémorisée (+8 XP)</Btn>
       </div>
     </div>
   );
@@ -1285,7 +1352,7 @@ function ExamResultScreen({ correctCount, totalCount, wrongItems, isPaid, setScr
   const pct = Math.round((correctCount / totalCount) * 100);
   const emoji = pct >= 80 ? "🏆" : pct >= 60 ? "⭐" : pct >= 40 ? "💪" : "📚";
   const scoreColor = pct >= 70 ? "var(--success)" : pct >= 50 ? "var(--warn)" : "var(--danger)";
-  const xpEarned = correctCount * 15 + 10;
+  const xpEarned = correctCount * 8 + 5;
   const topics = [...new Set(wrongItems.map(x => x.topic).filter(Boolean))];
 
   useEffect(() => { addXP(xpEarned); unlockBadge("exam_passed"); }, []);
@@ -1696,11 +1763,11 @@ function BadgesPageView({ game, compact, isPaid, setScreen, isMobile }) {
 
 // ─── GAMES PAGE VIEW ──────────────────────────────────────────────────────────
 const GAME_CATALOG = [
-  { id: "quiz",    icon: "🎯", label: "Quiz Flash",      desc: "5 questions · QCM sur tes flashcards", xp: 10,  premium: false, color: "#6366f1" },
-  { id: "speed",   icon: "⚡", label: "Speed Quiz",      desc: "15 sec par question · Chrono !",       xp: 15,  premium: true,  color: "#f59e0b" },
-  { id: "tf",      icon: "✅", label: "Vrai ou Faux",    desc: "Rapide · Parfait pour réviser vite",   xp: 8,   premium: true,  color: "#10b981" },
-  { id: "boss",    icon: "🐉", label: "Boss Battle",     desc: "10 questions · Double XP si 7/10+",    xp: 20,  premium: true,  color: "#ef4444" },
-  { id: "match",   icon: "🔗", label: "Associer",        desc: "Relie chaque terme à sa définition",   xp: 12,  premium: true,  color: "#8b5cf6" },
+  { id: "quiz",    icon: "🎯", label: "Quiz Flash",      desc: "5 questions · QCM sur tes flashcards", xp: 5,   premium: false, color: "#6366f1" },
+  { id: "speed",   icon: "⚡", label: "Speed Quiz",      desc: "15 sec par question · Chrono !",       xp: 8,   premium: true,  color: "#f59e0b" },
+  { id: "tf",      icon: "✅", label: "Vrai ou Faux",    desc: "Rapide · Parfait pour réviser vite",   xp: 4,   premium: true,  color: "#10b981" },
+  { id: "boss",    icon: "🐉", label: "Boss Battle",     desc: "10 questions · +50 XP bonus si 7/10+", xp: 10,  premium: true,  color: "#ef4444" },
+  { id: "match",   icon: "🔗", label: "Associer",        desc: "Relie chaque terme à sa définition",   xp: 6,   premium: true,  color: "#8b5cf6" },
 ];
 
 function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
@@ -1708,11 +1775,12 @@ function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
 
   if (activeGame) {
     const onDone = () => setActiveGame(null);
-    if (activeGame === "quiz")  return <QuizGame  subject={subject} addXP={addXP} onBack={onDone} xpPer={10} count={5}  />;
-    if (activeGame === "speed") return <SpeedGame subject={subject} addXP={addXP} onBack={onDone} />;
-    if (activeGame === "tf")    return <TrueFalseGame subject={subject} addXP={addXP} onBack={onDone} />;
-    if (activeGame === "boss")  return <BossGame  subject={subject} addXP={addXP} onBack={onDone} unlockBadge={() => {}} />;
-    if (activeGame === "match") return <MatchGame subject={subject} addXP={addXP} onBack={onDone} />;
+    // key={subject} forces a full remount whenever subject changes — resets all quiz state
+    if (activeGame === "quiz")  return <QuizGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} count={5}  />;
+    if (activeGame === "speed") return <SpeedGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
+    if (activeGame === "tf")    return <TrueFalseGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
+    if (activeGame === "boss")  return <BossGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} unlockBadge={() => {}} />;
+    if (activeGame === "match") return <MatchGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
   }
 
   return (
@@ -1747,18 +1815,18 @@ function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
                   {g.premium && <span style={{ fontSize: 10, fontWeight: 700, background: locked ? "var(--card2)" : g.color + "18", color: locked ? "var(--text-muted)" : g.color, border: `1px solid ${locked ? "var(--border)" : g.color + "40"}`, borderRadius: 20, padding: "1px 7px" }}>PREMIUM</span>}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{g.desc}</div>
-                <div style={{ fontSize: 11, color: g.color, fontWeight: 700, marginTop: 3 }}>+{isPaid ? Math.round(g.xp * 1.5) : g.xp} XP par bonne réponse</div>
+                <div style={{ fontSize: 11, color: locked ? "var(--text-muted)" : g.color, fontWeight: 700, marginTop: 3 }}>+{isPaid ? Math.round(g.xp * 1.5) : g.xp} XP / bonne réponse</div>
               </div>
 
               {/* CTA */}
               {locked ? (
                 <button onClick={() => setScreen("pricing")}
-                  style={{ background: "var(--accent)", color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+                  style={{ background: "var(--accent)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 14px", fontSize: 12, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
                   Débloquer →
                 </button>
               ) : (
                 <button onClick={() => setActiveGame(g.id)}
-                  style={{ background: g.color, color: "#fff", border: "none", borderRadius: 10, padding: "8px 18px", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+                  style={{ background: g.color, color: "#fff", border: "none", borderRadius: 10, padding: "12px 18px", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
                   Jouer →
                 </button>
               )}
@@ -1773,8 +1841,13 @@ function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
 // ── Shared MCQ quiz used by QuizGame and BossGame ─────────────────────────────
 function buildMCQ(subject, count) {
   const allCards = Object.values(FLASHCARDS_DB).flat();
-  const subCards = FLASHCARDS_DB[subject]?.length >= 4 ? FLASHCARDS_DB[subject] : allCards;
+  // Use subject-specific cards; only fall back to all subjects when subject is "general"
+  // or when the subject has no flashcard database at all.
+  const subCards = (subject && subject !== "general" && FLASHCARDS_DB[subject]?.length > 0)
+    ? FLASHCARDS_DB[subject]
+    : allCards;
   const shuffled = [...subCards].sort(() => Math.random() - 0.5).slice(0, count);
+  // Wrong options always come from all subjects (distractor pool) — subject-agnostic is fine
   return shuffled.map(c => {
     const wrongs = allCards.filter(x => x.front !== c.front).sort(() => Math.random() - 0.5).slice(0, 3);
     return { card: c, opts: [...wrongs.map(x => x.front), c.front].sort(() => Math.random() - 0.5) };
@@ -1798,7 +1871,7 @@ function MCQQuestionUI({ q, chosen, onAnswer }) {
           const color = chosen ? (isCorrect ? "var(--success)" : isChosen ? "var(--danger)" : "var(--text-muted)") : "var(--text-soft)";
           return (
             <button key={i} onClick={() => onAnswer(opt)}
-              style={{ padding: "10px 14px", borderRadius: 12, textAlign: "left", fontSize: 13, fontWeight: 600, cursor: chosen ? "default" : "pointer", transition: "all 0.2s", border: `1.5px solid ${border}`, background: bg, color }}>
+              style={{ padding: "13px 14px", borderRadius: 12, textAlign: "left", fontSize: 13, fontWeight: 600, cursor: chosen ? "default" : "pointer", transition: "all 0.2s", border: `1.5px solid ${border}`, background: bg, color }}>
               {chosen && isCorrect ? "✅ " : chosen && isChosen ? "❌ " : ""}{opt}
             </button>
           );
@@ -1839,8 +1912,8 @@ function QuizGame({ subject, addXP, onBack, count = 5 }) {
     setChosen(opt);
     if (opt === questions[idx].card.front) {
       setScore(s => s + 1);
-      addXP(10);
-      setXpE(e => e + 10);
+      addXP(5);
+      setXpE(e => e + 5);
     }
     setTimeout(() => {
       if (idx + 1 >= questions.length) setDone(true);
@@ -1877,7 +1950,7 @@ function SpeedGame({ subject, addXP, onBack }) {
 
   const next = useCallback((wasCorrect, opt) => {
     clearInterval(timerRef.current);
-    if (wasCorrect) { setScore(s => s + 1); addXP(15); setXpE(e => e + 15); }
+    if (wasCorrect) { setScore(s => s + 1); addXP(8); setXpE(e => e + 8); }
     setChosen(opt || "timeout");
     setTimeout(() => {
       if (idx + 1 >= COUNT) { setDone(true); }
@@ -1924,7 +1997,9 @@ function SpeedGame({ subject, addXP, onBack }) {
 function TrueFalseGame({ subject, addXP, onBack }) {
   const buildTF = () => {
     const allCards = Object.values(FLASHCARDS_DB).flat();
-    const subCards = FLASHCARDS_DB[subject]?.length >= 4 ? FLASHCARDS_DB[subject] : allCards;
+    const subCards = (subject && subject !== "general" && FLASHCARDS_DB[subject]?.length > 0)
+      ? FLASHCARDS_DB[subject]
+      : allCards;
     const pool = [...subCards].sort(() => Math.random() - 0.5).slice(0, 8);
     return pool.map((c, i) => {
       const isTrue = i % 2 === 0;
@@ -1942,7 +2017,7 @@ function TrueFalseGame({ subject, addXP, onBack }) {
   const handleAnswer = (val) => {
     if (chosen !== null) return;
     setChosen(val);
-    if (val === questions[idx].answer) { setScore(s => s + 1); addXP(8); setXpE(e => e + 8); }
+    if (val === questions[idx].answer) { setScore(s => s + 1); addXP(4); setXpE(e => e + 4); }
     setTimeout(() => {
       if (idx + 1 >= questions.length) setDone(true);
       else { setIdx(i => i + 1); setChosen(null); }
@@ -2008,8 +2083,8 @@ function BossGame({ subject, addXP, onBack }) {
     setChosen(opt);
     if (opt === questions[idx].card.front) {
       setScore(s => s + 1);
-      addXP(20);
-      setXpE(e => e + 20);
+      addXP(10);
+      setXpE(e => e + 10);
     }
     setTimeout(() => {
       if (idx + 1 >= COUNT) setDone(true);
@@ -2022,14 +2097,14 @@ function BossGame({ subject, addXP, onBack }) {
   if (done) {
     const won = score >= 7;
     const bonusXP = won ? 100 : 0;
-    if (won) addXP(100);
+    if (won) addXP(50);
     return (
       <div style={{ textAlign: "center", padding: "24px 0" }}>
         <div style={{ fontSize: 56, marginBottom: 10 }}>{won ? "🐉" : "😤"}</div>
         <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 22, color: "var(--text)", marginBottom: 6 }}>{won ? "Boss vaincu !" : "Boss résiste..."}</div>
         <div style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 4 }}>{score}/{COUNT} bonnes réponses</div>
-        {won && <div style={{ fontSize: 14, color: "var(--success)", fontWeight: 700, marginBottom: 4 }}>+100 XP bonus Boss !</div>}
-        <div style={{ fontSize: 14, color: "var(--warn)", fontWeight: 700, marginBottom: 18 }}>Total : +{xpEarned + bonusXP} XP</div>
+        {won && <div style={{ fontSize: 14, color: "var(--success)", fontWeight: 700, marginBottom: 4 }}>+50 XP bonus Boss !</div>}
+        <div style={{ fontSize: 14, color: "var(--warn)", fontWeight: 700, marginBottom: 18 }}>Total : +{xpEarned + (won ? 50 : 0)} XP</div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <Btn primary onClick={replay}>🔄 Réessayer</Btn>
           <Btn ghost onClick={onBack}>← Jeux</Btn>
@@ -2061,7 +2136,9 @@ function BossGame({ subject, addXP, onBack }) {
 function MatchGame({ subject, addXP, onBack }) {
   const buildPairs = () => {
     const allCards = Object.values(FLASHCARDS_DB).flat();
-    const subCards = FLASHCARDS_DB[subject]?.length >= 4 ? FLASHCARDS_DB[subject] : allCards;
+    const subCards = (subject && subject !== "general" && FLASHCARDS_DB[subject]?.length > 0)
+      ? FLASHCARDS_DB[subject]
+      : allCards;
     return [...subCards].sort(() => Math.random() - 0.5).slice(0, 4);
   };
   const [pairs, setPairs]         = useState(buildPairs);
@@ -2079,7 +2156,7 @@ function MatchGame({ subject, addXP, onBack }) {
     if (correct) {
       const newMatched = [...matched, leftSel];
       setMatched(newMatched);
-      addXP(12); setXpE(e => e + 12);
+      addXP(6); setXpE(e => e + 6);
       if (newMatched.length === pairs.length) setTimeout(() => setDone(true), 400);
     } else {
       setErrors(e => e + 1);
@@ -2322,7 +2399,7 @@ function ParentDashboard({ familyProfiles, allProfiles, allGameData, allProgress
                   {/* Switch to profile button */}
                   <button
                     onClick={() => { setActiveProfileId(child.id); }}
-                    style={{ width: "100%", background: "var(--accent-soft)", border: "1px solid var(--accent-glow)", borderRadius: 12, padding: "9px", fontSize: 13, fontWeight: 700, color: "var(--accent)", cursor: "pointer", transition: "all 0.15s" }}
+                    style={{ width: "100%", background: "var(--accent-soft)", border: "1px solid var(--accent-glow)", borderRadius: 12, padding: "13px", fontSize: 13, fontWeight: 700, color: "var(--accent)", cursor: "pointer", transition: "all 0.15s" }}
                     onMouseOver={e => { e.currentTarget.style.background = "var(--accent)"; e.currentTarget.style.color = "#fff"; }}
                     onMouseOut={e => { e.currentTarget.style.background = "var(--accent-soft)"; e.currentTarget.style.color = "var(--accent)"; }}>
                     Voir le profil de {child.name?.split(" ")[0]} →

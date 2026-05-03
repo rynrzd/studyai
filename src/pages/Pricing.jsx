@@ -41,7 +41,7 @@ export function Pricing() {
         <h1 style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 30, color: "var(--text)", marginBottom: 10, letterSpacing: "-0.6px" }}>Choisis ton plan</h1>
         <p style={{ color: "var(--text-muted)", fontSize: 15 }}>Change de plan à tout moment depuis tes paramètres</p>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 18, padding: "0 22px 40px", maxWidth: 920, margin: "0 auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14, padding: "0 14px 40px", maxWidth: 920, margin: "0 auto" }}>
         {plans.map((plan) => {
           const active = (currentUser?.plan || "free") === plan.id;
           return (
@@ -73,6 +73,7 @@ export function Pricing() {
 // ─── Settings ─────────────────────────────────────────────────────────────────
 export function Settings() {
   const { currentUser, updateUser, dark, setDark, logout, setScreen, effectiveProfile, activeSubjects, updateProfileGrade } = useApp();
+  const isMobile = window.innerWidth < 900;
   const BAD = ["merde", "putain", "connard", "salope", "bite", "couille"];
 
   const [aiName,       setAiName]       = useState(currentUser?.aiName || "Study AI");
@@ -287,10 +288,10 @@ export function Settings() {
         <Logo />
         <button onClick={() => setScreen("chat")} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>← Retour au chat</button>
       </div>
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "36px 20px" }}>
-        <h1 style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 26, color: "var(--text)", marginBottom: 28, letterSpacing: "-0.4px" }}>⚙️ Paramètres</h1>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: isMobile ? "20px 14px 40px" : "36px 20px" }}>
+        <h1 style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: isMobile ? 22 : 26, color: "var(--text)", marginBottom: 22, letterSpacing: "-0.4px" }}>⚙️ Paramètres</h1>
         {sections.map((sec, i) => (
-          <div key={i} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 20, padding: "22px", marginBottom: 13 }}>
+          <div key={i} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 20, padding: isMobile ? "16px" : "22px", marginBottom: 10 }}>
             <h3 style={{ fontWeight: 800, fontSize: 15, color: sec.danger ? "var(--danger)" : "var(--text)", marginBottom: 14 }}>{sec.title}</h3>
             {sec.content}
           </div>
