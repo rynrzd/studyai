@@ -1,8 +1,10 @@
 // api/ai.js — Secure Anthropic proxy (Vercel serverless function)
 // API key stays server-side. Browser calls /api/ai, never api.anthropic.com.
 
-// Load .env for local dev. No-op in production (Vercel injects vars from dashboard).
 import "dotenv/config";
+
+const MODEL   = "claude-haiku-4-5-20251001";
+const MAX_TOK = 1200;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -11,7 +13,8 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: "Service IA indisponible : clé API manquante." });
+    console.error("[api/ai] ANTHROPIC_API_KEY manquante");
+    return res.status(500).json({ error: "Service IA temporairement indisponible." });
   }
 
   const { systemPrompt, messages, imageBase64 } = req.body || {};
@@ -20,65 +23,102 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Messages requis." });
   }
 
-  // Build messages array — enforce role alternation and length limits
-  let msgArray = messages.map((m) => ({
-    role:    m.role === "assistant" ? "assistant" : "user",
-    content: String(m.content || "").slice(0, 12000),
-  }));
+  // ── Build a valid messages array ──────────────────────────────────────────
+  // 1. Normalise roles — only "user" and "assistant"
+  // 2. Ensure strict alternation (merge consecutive same-role messages)
+  // 3. Must start with "user"
+  // 4. Hard cap at 20 messages
+  let raw = messages
+    .map(m => ({
+      role:    m.role === "assistant" ? "assistant" : "user",
+      content: String(m.content || "").trim().slice(0, 8000),
+    }))
+    .filter(m => m.content.length > 0)
+    .slice(-20);
 
-  if (msgArray.length > 60) {
-    msgArray = msgArray.slice(-60);
+  // Enforce alternation: merge consecutive same-role into one
+  const merged = [];
+  for (const m of raw) {
+    const prev = merged[merged.length - 1];
+    if (prev && prev.role === m.role) {
+      prev.content += "\n" + m.content;
+    } else {
+      merged.push({ role: m.role, content: m.content });
+    }
+  }
+
+  // Must start with "user"
+  if (merged[0]?.role !== "user") {
+    merged.unshift({ role: "user", content: "Bonjour." });
   }
 
   // Attach image to last user message (optional)
   if (imageBase64 && typeof imageBase64 === "string") {
-    const last = msgArray[msgArray.length - 1];
+    const last = merged[merged.length - 1];
     if (last.role === "user") {
-      msgArray[msgArray.length - 1] = {
+      merged[merged.length - 1] = {
         role: "user",
         content: [
-          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64.slice(0, 5 * 1024 * 1024) } },
-          { type: "text",  text: String(last.content) || "Analyse ce document." },
+          {
+            type: "image",
+            source: {
+              type:       "base64",
+              media_type: "image/jpeg",
+              data:       imageBase64.slice(0, 5 * 1024 * 1024),
+            },
+          },
+          { type: "text", text: String(last.content) || "Analyse ce document." },
         ],
       };
     }
   }
 
-  const requestBody = {
-    model:      "claude-haiku-4-5-20251001",
-    max_tokens: 1200,
-    messages:   msgArray,
+  const body = {
+    model:      MODEL,
+    max_tokens: MAX_TOK,
+    messages:   merged,
   };
 
-  const system = String(systemPrompt || "").trim();
-  if (system) requestBody.system = system.slice(0, 6000);
+  const system = String(systemPrompt || "").trim().slice(0, 6000);
+  if (system) body.system = system;
 
+  // ── Call Anthropic ────────────────────────────────────────────────────────
   try {
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type":      "application/json",
         "x-api-key":         apiKey,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(body),
     });
 
-    const text = await anthropicRes.text();
+    const raw = await response.text();
 
-    if (!anthropicRes.ok) {
-      console.error("[api/ai] Anthropic error:", anthropicRes.status, text);
-      let detail = text;
-      try { detail = JSON.parse(text)?.error?.message || text; } catch {}
-      return res.status(502).json({ error: `Erreur IA ${anthropicRes.status}: ${detail}` });
+    if (!response.ok) {
+      console.error("[api/ai] Anthropic error", response.status, raw.slice(0, 400));
+      return res.status(502).json({ error: "Service IA temporairement indisponible. Réessaie dans quelques secondes." });
     }
 
-    const data  = JSON.parse(text);
-    const reply = data?.content?.[0]?.text || "Aucune réponse reçue.";
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      console.error("[api/ai] JSON parse error:", raw.slice(0, 200));
+      return res.status(502).json({ error: "Réponse IA invalide. Réessaie." });
+    }
+
+    const reply = data?.content?.[0]?.text;
+    if (!reply) {
+      console.error("[api/ai] Empty reply:", JSON.stringify(data).slice(0, 200));
+      return res.status(502).json({ error: "Réponse IA vide. Réessaie." });
+    }
+
     return res.status(200).json({ reply });
 
   } catch (err) {
-    console.error("[api/ai] Fetch error:", err.message);
-    return res.status(500).json({ error: "Erreur serveur : " + err.message });
+    console.error("[api/ai] Network error:", err.message);
+    return res.status(500).json({ error: "Erreur réseau. Vérifie ta connexion et réessaie." });
   }
 }

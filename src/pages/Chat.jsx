@@ -201,7 +201,7 @@ export default function Chat() {
 
         {/* Scrollable content — overflow: hidden when copilot view is active so only
             the internal message list scrolls, keeping the input pinned to the bottom */}
-        <div className="sai-scroll sai-main" style={{ flex: 1, overflow: view === "copilot" ? "hidden" : "auto", display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div className="sai-scroll sai-main" style={{ flex: 1, overflowX: "hidden", overflowY: view === "copilot" ? "hidden" : "auto", display: "flex", flexDirection: "column", minWidth: 0 }}>
           {isMobile ? renderContent(true) : renderContent(false)}
         </div>
 
@@ -529,7 +529,97 @@ function FirstNoteInput({ subject, addNote }) {
   );
 }
 
-function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, startFlashcards, startExam, send, randomQs, isPaid, isGuest, currentUser, setScreen, isMobile, setView, addNote, examDates, saveExamDates, activeSubjects: propSubjects }) {
+// ─── DAILY CHALLENGE QUIZ ─────────────────────────────────────────────────────
+const DAILY_LEGACY_MAP = { histoire: "hg", sciences: "svt" };
+
+function DailyChallengeQuiz({ challenge, addXP, onDone, isMobile }) {
+  const subjectId = DAILY_LEGACY_MAP[challenge.sub] || challenge.sub;
+  const questions = useMemo(() => buildMCQ(subjectId, 5), [subjectId]);
+  const COMPLETION_XP = challenge.xp; // 30 XP flat reward on finish
+  const PER_Q_XP = 5;
+
+  const [current, setCurrent]   = useState(0);
+  const [chosen, setChosen]     = useState(null);
+  const [score, setScore]       = useState(0);
+  const [xpEarned, setXpEarned] = useState(0);
+  const [done, setDone]         = useState(false);
+
+  const handleAnswer = (opt) => {
+    if (chosen) return;
+    setChosen(opt);
+    if (opt === questions[current].card.front) {
+      setScore(s => s + 1);
+      addXP(PER_Q_XP);
+      setXpEarned(e => e + PER_Q_XP);
+    }
+    setTimeout(() => {
+      if (current + 1 >= questions.length) {
+        addXP(COMPLETION_XP);
+        setXpEarned(e => e + COMPLETION_XP);
+        setDone(true);
+      } else {
+        setCurrent(i => i + 1);
+        setChosen(null);
+      }
+    }, 1100);
+  };
+
+  if (done) {
+    const pct = Math.round((score / questions.length) * 100);
+    const emoji = pct >= 80 ? "🏆" : pct >= 60 ? "⭐" : "💪";
+    return (
+      <div style={{ textAlign: "center", padding: "32px 16px" }}>
+        <div style={{ fontSize: 60, marginBottom: 14 }}>{emoji}</div>
+        <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 26, color: "var(--text)", marginBottom: 6 }}>Défi terminé !</div>
+        <div style={{ fontSize: 15, color: "var(--text-muted)", marginBottom: 8 }}>{score}/{questions.length} bonnes réponses</div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 20, padding: "10px 22px", marginBottom: 10 }}>
+          <span style={{ fontSize: 20 }}>⭐</span>
+          <span style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 22, color: "var(--warn)" }}>+{xpEarned} XP</span>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 28 }}>
+          dont +{COMPLETION_XP} XP bonus défi 🎯
+        </div>
+        <button onClick={onDone}
+          style={{ width: "100%", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 14, padding: "15px 20px", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
+          ← Retour à l'accueil
+        </button>
+      </div>
+    );
+  }
+
+  const q = questions[current];
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <button onClick={onDone}
+          style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", padding: "4px 0" }}>
+          ← Annuler
+        </button>
+        <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>Question {current + 1}/5</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--warn)" }}>⭐ {xpEarned} XP</span>
+      </div>
+
+      {/* Challenge context banner */}
+      <div style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.10),rgba(239,68,68,0.05))", border: "1.5px solid rgba(245,158,11,0.28)", borderRadius: 14, padding: "11px 14px", marginBottom: 14, display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>🎯</span>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 800, color: "#d97706", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 2 }}>Défi du jour · +{COMPLETION_XP} XP à la fin</div>
+          <div style={{ fontSize: 12, color: "var(--text-soft)", lineHeight: 1.5 }}>{challenge.q}</div>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <ProgressBar value={current + 1} max={questions.length} color="#f59e0b" />
+      <div style={{ marginBottom: 16 }} />
+
+      {/* Question */}
+      <MCQQuestionUI q={q} chosen={chosen} onAnswer={handleAnswer} />
+    </div>
+  );
+}
+
+function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, startFlashcards, startExam, send, randomQs, isPaid, isGuest, currentUser, setScreen, isMobile, setView, addNote, examDates, saveExamDates, activeSubjects: propSubjects, addXP, unlockBadge }) {
   const { activeSubjects: ctxSubjects, effectiveProfile } = useApp();
   const grades = effectiveProfile?.grades || {};
   const info = lvlInfo(game.xp);
@@ -537,6 +627,7 @@ function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, st
   const unlockedBadges = (game.badges || []).length;
   const isProf = currentUser?.role === "prof";
   const firstName = currentUser?.name?.split(" ")[0] || "là";
+  const [showDailyQuiz, setShowDailyQuiz] = useState(false);
 
   // Subjects from profile (no general, no sport)
   const resolvedSubjects = propSubjects || ctxSubjects;
@@ -552,8 +643,14 @@ function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, st
   const weakSubject = subjects.find(s => grades[s.id] !== undefined && grades[s.id] < 10);
   const lastActive = subjects.filter(s => (progress[s.id]?.sessions || 0) > 0).sort((a, b) => (progress[b.id]?.sessions || 0) - (progress[a.id]?.sessions || 0))[0];
 
+  if (showDailyQuiz) return (
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: isMobile ? "none" : 700, margin: "0 auto", width: "100%" }}>
+      <DailyChallengeQuiz challenge={dailyChallenge} addXP={addXP} onDone={() => setShowDailyQuiz(false)} isMobile={isMobile} />
+    </div>
+  );
+
   return (
-    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: 900, margin: "0 auto", width: "100%" }} className="fade-in">
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: isMobile ? "none" : 900, margin: "0 auto", width: "100%" }} className="fade-in">
 
       {/* Hero card */}
       <div style={{ background: "linear-gradient(135deg,var(--accent),var(--accent2))", borderRadius: 24, padding: isMobile ? "22px 20px" : "28px 32px", color: "#fff", marginBottom: 20, position: "relative", overflow: "hidden" }}>
@@ -578,7 +675,7 @@ function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, st
               </button>
             )}
             {!isMobile && (
-              <button onClick={() => send(dailyChallenge.q)}
+              <button onClick={() => setShowDailyQuiz(true)}
                 style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: 12, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                 🎯 Défi du jour +{dailyChallenge.xp}XP
               </button>
@@ -590,7 +687,7 @@ function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, st
       {/* Mobile daily challenge card — big tappable, XP visible */}
       {isMobile && (
         <div style={{ marginBottom: 16, borderRadius: 20, overflow: "hidden", border: "1.5px solid rgba(245,158,11,0.3)", background: "linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.04))" }}>
-          <button onClick={() => send(dailyChallenge.q)} style={{ width: "100%", padding: "18px 20px", textAlign: "left", background: "transparent", border: "none", cursor: "pointer" }}>
+          <button onClick={() => setShowDailyQuiz(true)} style={{ width: "100%", padding: "18px 20px", textAlign: "left", background: "transparent", border: "none", cursor: "pointer" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
               <div style={{ width: 42, height: 42, borderRadius: 13, background: "linear-gradient(135deg,#f59e0b,#ef4444)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🎯</div>
               <div>
@@ -623,13 +720,13 @@ function HomeContent({ game, progress, dailyChallenge, openSubject, setPanel, st
       )}
 
       {/* Metrics row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: isMobile ? 8 : 12, marginBottom: 20 }}>
         {[
           { icon: "⭐", val: game.xp, sub: `XP · Niv.${info.level}`, color: "#f59e0b", pct: info.pct },
           { icon: "🏆", val: `${unlockedBadges}/${BADGES_DATA.length}`, sub: "Badges débloqués", color: "#6366f1" },
           { icon: "📈", val: avgScore ? `${avgScore}/20` : allSessions > 0 ? `${allSessions} sessions` : "—", sub: avgScore ? "Moyenne globale" : "Sessions totales", color: "#10b981" },
         ].map((m, i) => (
-          <div key={i} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 18, padding: isMobile ? "14px 12px" : "18px 16px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+          <div key={i} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 18, padding: isMobile ? "14px 12px" : "18px 16px", textAlign: "center", position: "relative", overflow: "hidden", ...(isMobile && i === 2 ? { gridColumn: "1 / -1" } : {}) }}>
             <div style={{ position: "absolute", top: -16, right: -16, width: 60, height: 60, background: m.color + "14", borderRadius: "50%" }} />
             <div style={{ fontSize: isMobile ? 20 : 24, marginBottom: 4 }}>{m.icon}</div>
             <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: isMobile ? 18 : 22, color: "var(--text)" }}>{m.val}</div>
@@ -915,7 +1012,7 @@ function SubjectWorkspace({ subjectId, progress, game, startFlashcards, startExa
   ].filter(Boolean)[0];
 
   if (showBrevetExam) return (
-    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: 800, margin: "0 auto", width: "100%" }} className="fade-in">
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: isMobile ? "none" : 800, margin: "0 auto", width: "100%" }} className="fade-in">
       <button onClick={() => setShowBrevetExam(false)}
         style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 13, fontWeight: 600, marginBottom: 20, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6 }}>
         ← Retour à {s.label}
@@ -934,7 +1031,7 @@ function SubjectWorkspace({ subjectId, progress, game, startFlashcards, startExa
   );
 
   return (
-    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: 800, margin: "0 auto", width: "100%" }} className="fade-in">
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: isMobile ? "none" : 800, margin: "0 auto", width: "100%" }} className="fade-in">
       {/* Back */}
       <button onClick={() => setView("home")}
         style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 13, fontWeight: 600, marginBottom: 20, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6 }}>
@@ -1364,22 +1461,34 @@ function ExamResultScreen({ correctCount, totalCount, wrongItems, isPaid, setScr
         <div style={{ fontSize: 52, marginBottom: 10 }}>{emoji}</div>
         <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 38, color: scoreColor, lineHeight: 1 }}>{correctCount}/{totalCount}</div>
         <div style={{ fontSize: 16, fontWeight: 800, color: scoreColor, marginTop: 4 }}>{pct}%</div>
-        <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>+{xpEarned} XP · Badge Champion débloqué !</div>
+        <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>+{xpEarned} XP</div>
       </div>
 
-      {/* Mistakes breakdown */}
+      {/* Correct summary */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+        <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12, padding: "12px", textAlign: "center" }}>
+          <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 22, color: "var(--success)" }}>{correctCount}</div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>correctes</div>
+        </div>
+        <div style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)", borderRadius: 12, padding: "12px", textAlign: "center" }}>
+          <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 22, color: "var(--danger)" }}>{wrongItems.length}</div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>erreurs</div>
+        </div>
+      </div>
+
+      {/* Mistakes breakdown with explanations */}
       {wrongItems.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 800, fontSize: 13, color: "var(--text)", marginBottom: 10 }}>
-            ❌ {wrongItems.length} erreur{wrongItems.length > 1 ? "s" : ""}
+            Corrections
           </div>
           {wrongItems.map((item, i) => (
-            <div key={i} style={{ background: "rgba(220,38,38,0.04)", border: "1px solid rgba(220,38,38,0.15)", borderRadius: 12, padding: "11px 14px", marginBottom: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 5, lineHeight: 1.4 }}>Q{item.idx + 1}. {item.qText}</div>
-              <div style={{ fontSize: 12, color: "var(--danger)" }}>✗ {item.userAnswer || "Non répondu"}</div>
-              <div style={{ fontSize: 12, color: "var(--success)", fontWeight: 700, marginTop: 2 }}>✓ {item.correct}</div>
-              {isPaid && item.hint && (
-                <div style={{ marginTop: 8, background: "var(--accent-soft)", borderRadius: 8, padding: "6px 10px", fontSize: 11, color: "var(--accent)", lineHeight: 1.5 }}>
+            <div key={i} style={{ background: "var(--card2)", border: "1px solid rgba(220,38,38,0.2)", borderRadius: 14, padding: "13px 14px", marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6, lineHeight: 1.5, whiteSpace: "pre-line" }}>Q{item.idx + 1}. {item.qText}</div>
+              <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 2 }}>✗ {item.userAnswer || "Non répondu"}</div>
+              <div style={{ fontSize: 13, color: "var(--success)", fontWeight: 700, marginBottom: item.hint ? 8 : 0 }}>✓ {item.correct}</div>
+              {item.hint && (
+                <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: 9, padding: "8px 10px", fontSize: 11, color: "var(--text)", lineHeight: 1.6, whiteSpace: "pre-line" }}>
                   💡 {item.hint}
                 </div>
               )}
@@ -1388,26 +1497,13 @@ function ExamResultScreen({ correctCount, totalCount, wrongItems, isPaid, setScr
         </div>
       )}
 
-      {/* Premium recommendation */}
+      {/* AI recommendation for premium users who have topic data */}
       {isPaid && topics.length > 0 && (
         <div style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.05))", border: "1px solid var(--accent-glow)", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
-          <div style={{ fontWeight: 800, fontSize: 13, color: "var(--accent)", marginBottom: 5 }}>✦ Recommandation IA</div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "var(--accent)", marginBottom: 5 }}>✦ Recommandation</div>
           <div style={{ fontSize: 12, color: "var(--text)", lineHeight: 1.5 }}>
-            Tu dois revoir : <strong>{topics.join(", ")}</strong>. Utilise les flashcards pour ces chapitres.
+            Revoir : <strong>{topics.join(", ")}</strong>
           </div>
-        </div>
-      )}
-
-      {/* Free lock CTA for explanations */}
-      {!isPaid && wrongItems.length > 0 && (
-        <div style={{ background: "var(--card2)", border: "1px dashed var(--accent-glow)", borderRadius: 12, padding: "12px 14px", marginBottom: 14, textAlign: "center" }}>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
-            🔒 Explications détaillées et recommandations IA disponibles avec Premium
-          </div>
-          <button onClick={() => setScreen && setScreen("pricing")}
-            style={{ background: "var(--accent)", color: "#fff", border: "none", borderRadius: 10, padding: "7px 18px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
-            Débloquer Premium →
-          </button>
         </div>
       )}
 
@@ -1430,7 +1526,6 @@ function ExamUI({ state, addXP, unlockBadge, onAskAI, onClose, isPaid, setScreen
   const [phase, setPhase]       = useState("entry");
   const [current, setCurrent]   = useState(0);
   const [answers, setAnswers]   = useState({});
-  const [feedback, setFeedback] = useState(null);
   const [timeLeft, setTimeLeft] = useState(duration);
   const timerRef = useRef(null);
 
@@ -1443,19 +1538,10 @@ function ExamUI({ state, addXP, unlockBadge, onAskAI, onClose, isPaid, setScreen
     return () => clearInterval(timerRef.current);
   }, [phase]);
 
-  const handleAnswer = (choice) => {
-    if (feedback) return;
-    const correct = questions[current].card.front === choice;
-    setAnswers(a => ({ ...a, [current]: choice }));
-    setFeedback(correct ? "correct" : "wrong");
-    setTimeout(() => {
-      setFeedback(null);
-      if (current < questions.length - 1) setCurrent(i => i + 1);
-      else { clearInterval(timerRef.current); setPhase("result"); }
-    }, 900);
-  };
-
-  const retry = () => { setCurrent(0); setAnswers({}); setFeedback(null); setTimeLeft(duration); setPhase("exam"); };
+  const handleSelect = (choice) => setAnswers(a => ({ ...a, [current]: choice }));
+  const handleNext   = () => { if (current < questions.length - 1) setCurrent(i => i + 1); };
+  const handleSubmit = () => { clearInterval(timerRef.current); setPhase("result"); };
+  const retry = () => { setCurrent(0); setAnswers({}); setTimeLeft(duration); setPhase("exam"); };
 
   if (phase === "entry") return (
     <ExamEntryScreen icon="🧪" subjectLabel={subjectLabel} mode="Examen Quiz"
@@ -1467,7 +1553,8 @@ function ExamUI({ state, addXP, unlockBadge, onAskAI, onClose, isPaid, setScreen
   if (phase === "result") {
     const correctCount = questions.filter((q, i) => answers[i] === q.card.front).length;
     const wrongItems = questions.map((q, i) => ({
-      idx: i, qText: q.card.back, correct: q.card.front, userAnswer: answers[i] || null, hint: null, topic: null,
+      idx: i, qText: q.card.back, correct: q.card.front,
+      userAnswer: answers[i] || null, hint: q.card.back, topic: null,
     })).filter(x => x.userAnswer !== x.correct);
     return (
       <ExamResultScreen correctCount={correctCount} totalCount={questions.length}
@@ -1481,39 +1568,75 @@ function ExamUI({ state, addXP, unlockBadge, onAskAI, onClose, isPaid, setScreen
   const secs = String(timeLeft % 60).padStart(2, "0");
   const timerPct = (timeLeft / duration) * 100;
   const timerColor = timerPct > 50 ? "var(--success)" : timerPct > 20 ? "var(--warn)" : "var(--danger)";
+  const isLast = current === questions.length - 1;
+  const answeredCount = Object.keys(answers).length;
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)" }}>
-          {subjectLabel} · <strong style={{ color: "var(--text)" }}>{current + 1} / {questions.length}</strong>
+          {subjectLabel} · <strong style={{ color: "var(--text)" }}>{current + 1}/{questions.length}</strong>
         </div>
         <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 20, color: timerColor }}>{mins}:{secs}</div>
       </div>
-      <ProgressBar value={current + 1} max={questions.length} color="var(--accent)" />
-      <div style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 14, padding: "16px 18px", margin: "14px 0" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>Quel est ce concept ?</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", lineHeight: 1.6 }}>{q.card.back}</div>
+      <div style={{ height: 4, background: "var(--border)", borderRadius: 4, overflow: "hidden", marginBottom: 16 }}>
+        <div style={{ height: "100%", width: `${timerPct}%`, background: timerColor, transition: "width 1s linear, background 0.3s" }} />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 14, padding: "16px 18px", marginBottom: 14 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>Quel est ce concept ?</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", lineHeight: 1.6, whiteSpace: "pre-line" }}>{q.card.back}</div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 16 }}>
         {q.opts.map((choice, i) => {
           const letter = ["A","B","C","D"][i];
           const selected = answers[current] === choice;
-          const isCorrect = choice === q.card.front;
-          let bg = "var(--card2)", bdr = "1.5px solid var(--border)";
-          if (feedback && selected) {
-            bg = feedback === "correct" ? "rgba(16,185,129,0.12)" : "rgba(220,38,38,0.10)";
-            bdr = `1.5px solid ${feedback === "correct" ? "var(--success)" : "var(--danger)"}`;
-          }
-          if (feedback === "wrong" && isCorrect) { bg = "rgba(16,185,129,0.08)"; bdr = "1.5px solid var(--success)"; }
           return (
-            <button key={choice} onClick={() => handleAnswer(choice)} disabled={!!feedback}
-              style={{ background: bg, border: bdr, borderRadius: 12, padding: "12px 16px", textAlign: "left", cursor: feedback ? "default" : "pointer", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s" }}>
-              <span style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0, color: "var(--text-muted)" }}>{letter}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{choice}</span>
+            <button key={choice} onClick={() => handleSelect(choice)}
+              style={{
+                background: selected ? "var(--accent-soft)" : "var(--card2)",
+                border: `1.5px solid ${selected ? "var(--accent)" : "var(--border)"}`,
+                borderRadius: 13, padding: "14px 16px", textAlign: "left",
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s",
+              }}>
+              <span style={{
+                width: 28, height: 28, borderRadius: "50%",
+                background: selected ? "var(--accent)" : "var(--border)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 800, flexShrink: 0,
+                color: selected ? "#fff" : "var(--text-muted)",
+              }}>{letter}</span>
+              <span style={{ fontSize: 14, fontWeight: selected ? 700 : 600, color: selected ? "var(--accent)" : "var(--text)" }}>{choice}</span>
             </button>
           );
         })}
+      </div>
+      {isLast ? (
+        <button onClick={handleSubmit}
+          style={{ width: "100%", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 14, padding: "15px 20px", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
+          Terminer l'examen → ({answeredCount}/{questions.length})
+        </button>
+      ) : (
+        <button onClick={handleNext}
+          style={{ width: "100%", background: answers[current] ? "var(--accent)" : "var(--card2)", color: answers[current] ? "#fff" : "var(--text-muted)", border: `1.5px solid ${answers[current] ? "var(--accent)" : "var(--border)"}`, borderRadius: 14, padding: "15px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>
+          Question suivante →
+        </button>
+      )}
+      <div style={{ display: "flex", gap: 5, marginTop: 14, flexWrap: "wrap", justifyContent: "center" }}>
+        {questions.map((_, i) => (
+          <button key={i} onClick={() => setCurrent(i)}
+            style={{
+              width: 32, height: 32, borderRadius: 8,
+              border: `1.5px solid ${i === current ? "var(--accent)" : "var(--border)"}`,
+              background: i === current ? "var(--accent-soft)" : answers[i] ? "var(--card2)" : "transparent",
+              color: i === current ? "var(--accent)" : answers[i] ? "var(--text)" : "var(--text-muted)",
+              fontSize: 12, fontWeight: i === current ? 800 : 600, cursor: "pointer",
+            }}>
+            {answers[i] ? "·" : i + 1}
+          </button>
+        ))}
+      </div>
+      <div style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: "var(--text-muted)" }}>
+        {answeredCount}/{questions.length} réponses
       </div>
     </div>
   );
@@ -1534,20 +1657,20 @@ function ProgressPageView({ progress, game, onAskAI, compact, activeSubjects: pr
   const totalSessions = Object.values(progress).reduce((s, p) => s + (p.sessions || 0), 0);
 
   return (
-    <div style={{ padding: compact ? "0" : isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: compact ? "none" : 800, margin: "0 auto", width: "100%" }}>
+    <div style={{ padding: compact ? "0" : isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: compact ? "none" : isMobile ? "none" : 800, margin: "0 auto", width: "100%" }}>
       {!compact && <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text)", marginBottom: 20 }}>📊 Progression</div>}
 
       {/* Summary stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 16 }}>
         {[
           { icon: "📈", val: mean ? `${mean}/20` : "—", label: "Moyenne" },
           { icon: "🔥", val: totalSessions, label: "Sessions" },
           { icon: "⭐", val: game.xp, label: "XP total" },
         ].map((s, i) => (
-          <div key={i} style={{ background: "var(--card2)", borderRadius: 14, padding: "12px 8px", textAlign: "center" }}>
-            <div style={{ fontSize: 20 }}>{s.icon}</div>
-            <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 18, color: "var(--text)" }}>{s.val}</div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{s.label}</div>
+          <div key={i} style={{ background: "var(--card2)", borderRadius: 14, padding: isMobile ? "10px 6px" : "12px 8px", textAlign: "center" }}>
+            <div style={{ fontSize: isMobile ? 18 : 20 }}>{s.icon}</div>
+            <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: isMobile ? 15 : 18, color: "var(--text)" }}>{s.val}</div>
+            <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -1615,7 +1738,7 @@ function PlannerPageView({ progress, genContent, genLoading, handleGenPlan, hand
   const genP = onGenPlan || handleGenPlan;
   const genE = onGenExercises || handleGenExercises;
   return (
-    <div style={{ padding: compact ? "0" : isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: compact ? "none" : 800, margin: "0 auto", width: "100%" }}>
+    <div style={{ padding: compact ? "0" : isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: compact ? "none" : isMobile ? "none" : 800, margin: "0 auto", width: "100%" }}>
       {!compact && <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text)", marginBottom: 20 }}>📅 Plan de Révision</div>}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <Btn primary loading={genLoading} onClick={genP}>📅 Générer mon planning</Btn>
@@ -1724,7 +1847,7 @@ function BadgesPageView({ game, compact, isPaid, setScreen, isMobile }) {
   const totalCount = FREE_BADGES.length + PREMIUM_BADGES.length + HIDDEN_BADGES.length;
 
   return (
-    <div style={{ padding: compact ? "0" : isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: compact ? "none" : 800, margin: "0 auto", width: "100%" }}>
+    <div style={{ padding: compact ? "0" : isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: compact ? "none" : isMobile ? "none" : 800, margin: "0 auto", width: "100%" }}>
       {!compact && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text)" }}>🏆 Mes Badges</div>
@@ -1775,16 +1898,22 @@ function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
 
   if (activeGame) {
     const onDone = () => setActiveGame(null);
+    let GameEl = null;
     // key={subject} forces a full remount whenever subject changes — resets all quiz state
-    if (activeGame === "quiz")  return <QuizGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} count={5}  />;
-    if (activeGame === "speed") return <SpeedGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
-    if (activeGame === "tf")    return <TrueFalseGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
-    if (activeGame === "boss")  return <BossGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} unlockBadge={() => {}} />;
-    if (activeGame === "match") return <MatchGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
+    if (activeGame === "quiz")  GameEl = <QuizGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} count={5}  />;
+    if (activeGame === "speed") GameEl = <SpeedGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
+    if (activeGame === "tf")    GameEl = <TrueFalseGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
+    if (activeGame === "boss")  GameEl = <BossGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} unlockBadge={() => {}} />;
+    if (activeGame === "match") GameEl = <MatchGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
+    if (GameEl) return (
+      <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 24px", maxWidth: isMobile ? "none" : 700, margin: "0 auto", width: "100%" }}>
+        {GameEl}
+      </div>
+    );
   }
 
   return (
-    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 24px", maxWidth: 700, margin: "0 auto", width: "100%" }} className="fade-in">
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 24px", maxWidth: isMobile ? "none" : 700, margin: "0 auto", width: "100%" }} className="fade-in">
       <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 22, color: "var(--text)", marginBottom: 6 }}>🎮 Mini-Jeux</div>
       <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
         Joue pour gagner de l'XP — les abonnés Premium profitent de {isPaid ? "tous les jeux débloqués 🔓" : "5 jeux (4 en Premium 🔒)"}
@@ -1841,21 +1970,29 @@ function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
 // ── Shared MCQ quiz used by QuizGame and BossGame ─────────────────────────────
 function buildMCQ(subject, count) {
   const allCards = Object.values(FLASHCARDS_DB).flat();
-  // Use subject-specific cards; only fall back to all subjects when subject is "general"
-  // or when the subject has no flashcard database at all.
   const subCards = (subject && subject !== "general" && FLASHCARDS_DB[subject]?.length > 0)
     ? FLASHCARDS_DB[subject]
     : allCards;
-  const shuffled = [...subCards].sort(() => Math.random() - 0.5).slice(0, count);
-  // Wrong options always come from all subjects (distractor pool) — subject-agnostic is fine
-  return shuffled.map(c => {
-    const wrongs = allCards.filter(x => x.front !== c.front).sort(() => Math.random() - 0.5).slice(0, 3);
-    return { card: c, opts: [...wrongs.map(x => x.front), c.front].sort(() => Math.random() - 0.5) };
+  const shuffled = [...subCards].sort(() => Math.random() - 0.5);
+  const questions = Array.from({ length: count }, (_, i) => shuffled[i % shuffled.length]);
+  return questions.map(c => {
+    const sameSubWrongs = subCards.filter(x => x.front !== c.front).sort(() => Math.random() - 0.5);
+    const wrongs = sameSubWrongs.slice(0, 3);
+    if (wrongs.length < 3) {
+      const extra = allCards
+        .filter(x => x.front !== c.front && !wrongs.some(w => w.front === x.front))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3 - wrongs.length);
+      wrongs.push(...extra);
+    }
+    const opts = [...wrongs.map(x => x.front), c.front].sort(() => Math.random() - 0.5);
+    return { card: c, opts };
   });
 }
 
 function MCQQuestionUI({ q, chosen, onAnswer }) {
   const { card, opts } = q;
+  const wasWrong = chosen && chosen !== card.front;
   return (
     <>
       <div style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px", marginBottom: 14 }}>
@@ -1877,6 +2014,12 @@ function MCQQuestionUI({ q, chosen, onAnswer }) {
           );
         })}
       </div>
+      {chosen && wasWrong && (
+        <div style={{ marginTop: 10, padding: "10px 13px", background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 11 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--success)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Bonne réponse : {card.front}</div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6, whiteSpace: "pre-line" }}>{card.back}</div>
+        </div>
+      )}
     </>
   );
 }
@@ -2003,7 +2146,10 @@ function TrueFalseGame({ subject, addXP, onBack }) {
     const pool = [...subCards].sort(() => Math.random() - 0.5).slice(0, 8);
     return pool.map((c, i) => {
       const isTrue = i % 2 === 0;
-      const fakeCard = !isTrue ? allCards.filter(x => x.front !== c.front).sort(() => Math.random() - 0.5)[0] : null;
+      const sameSubWrongs = subCards.filter(x => x.front !== c.front).sort(() => Math.random() - 0.5);
+      const fakeCard = !isTrue
+        ? (sameSubWrongs[0] || allCards.filter(x => x.front !== c.front).sort(() => Math.random() - 0.5)[0])
+        : null;
       return { front: c.front, back: isTrue ? c.back : fakeCard?.back || c.back, answer: isTrue };
     });
   };
@@ -2225,9 +2371,9 @@ function StatsPageView({ progress, game, isMobile }) {
   const activeDays = Object.keys(log).length;
 
   return (
-    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: 800, margin: "0 auto", width: "100%" }}>
+    <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 32px", maxWidth: isMobile ? "none" : 800, margin: "0 auto", width: "100%" }}>
       <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text)", marginBottom: 20 }}>📈 Statistiques</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,1fr)", gap: isMobile ? 10 : 12, marginBottom: 20 }}>
         {[
           { icon: "⭐", label: "XP Total",        val: game.xp,              color: "#f59e0b" },
           { icon: "🏆", label: "Niveau",           val: `Niv. ${info.level}`, color: "#6366f1" },
@@ -2308,7 +2454,7 @@ function ParentDashboard({ familyProfiles, allProfiles, allGameData, allProgress
   };
 
   return (
-    <div style={{ padding: isMobile ? "16px 14px 24px" : "28px 32px", maxWidth: 900, margin: "0 auto", width: "100%" }} className="fade-in">
+    <div style={{ padding: isMobile ? "16px 14px 24px" : "28px 32px", maxWidth: isMobile ? "none" : 900, margin: "0 auto", width: "100%" }} className="fade-in">
 
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
@@ -2602,7 +2748,6 @@ function StructuredExamPanel({ subjectId, subjectLabel, onClose, addXP, unlockBa
   const [phase, setPhase]       = useState("entry");
   const [current, setCurrent]   = useState(0);
   const [answers, setAnswers]   = useState({});
-  const [feedback, setFeedback] = useState(null);
   const [timeLeft, setTimeLeft] = useState(duration);
   const timerRef = useRef(null);
 
@@ -2615,19 +2760,10 @@ function StructuredExamPanel({ subjectId, subjectLabel, onClose, addXP, unlockBa
     return () => clearInterval(timerRef.current);
   }, [phase]);
 
-  const handleAnswer = (choice) => {
-    if (feedback) return;
-    const correct = questions[current].a === choice;
-    setAnswers(a => ({ ...a, [current]: choice }));
-    setFeedback(correct ? "correct" : "wrong");
-    setTimeout(() => {
-      setFeedback(null);
-      if (current < questions.length - 1) setCurrent(i => i + 1);
-      else { clearInterval(timerRef.current); setPhase("result"); }
-    }, 900);
-  };
-
-  const retry = () => { setCurrent(0); setAnswers({}); setFeedback(null); setTimeLeft(duration); setPhase("exam"); };
+  const handleSelect = (choice) => setAnswers(a => ({ ...a, [current]: choice }));
+  const handleNext   = () => { if (current < questions.length - 1) setCurrent(i => i + 1); };
+  const handleSubmit = () => { clearInterval(timerRef.current); setPhase("result"); };
+  const retry = () => { setCurrent(0); setAnswers({}); setTimeLeft(duration); setPhase("exam"); };
 
   if (phase === "entry") return (
     <ExamEntryScreen icon="📝" subjectLabel={subjectLabel} mode={examMode}
@@ -2653,53 +2789,82 @@ function StructuredExamPanel({ subjectId, subjectLabel, onClose, addXP, unlockBa
   const secs = String(timeLeft % 60).padStart(2, "0");
   const timerPct = (timeLeft / duration) * 100;
   const timerColor = timerPct > 50 ? "var(--success)" : timerPct > 20 ? "var(--warn)" : "var(--danger)";
+  const isLast = current === questions.length - 1;
+  const answeredCount = Object.keys(answers).length;
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)" }}>
-          {subjectLabel} · <strong style={{ color: "var(--text)" }}>{current + 1} / {questions.length}</strong>
+          {subjectLabel} · <strong style={{ color: "var(--text)" }}>{current + 1}/{questions.length}</strong>
         </div>
         <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 20, color: timerColor }}>{mins}:{secs}</div>
       </div>
-      <ProgressBar value={current + 1} max={questions.length} color="var(--accent)" />
+      <div style={{ height: 4, background: "var(--border)", borderRadius: 4, overflow: "hidden", marginBottom: 16 }}>
+        <div style={{ height: "100%", width: `${timerPct}%`, background: timerColor, transition: "width 1s linear, background 0.3s" }} />
+      </div>
 
-      <div style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 16, padding: "18px 20px", margin: "16px 0" }}>
+      <div style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 16, padding: "16px 18px", marginBottom: 14 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>
           {q.topic} · Question {current + 1}
         </div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", lineHeight: 1.6 }}>{q.q}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", lineHeight: 1.6 }}>{q.q}</div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 16 }}>
         {q.choices.map((choice, i) => {
           const letter = ["A","B","C","D"][i];
           const selected = answers[current] === choice;
-          const isCorrect = choice === q.a;
-          let bg = "var(--card2)", bdr = "1.5px solid var(--border)";
-          if (feedback && selected) {
-            bg = feedback === "correct" ? "rgba(16,185,129,0.12)" : "rgba(220,38,38,0.10)";
-            bdr = `1.5px solid ${feedback === "correct" ? "var(--success)" : "var(--danger)"}`;
-          }
-          if (feedback === "wrong" && isCorrect) { bg = "rgba(16,185,129,0.08)"; bdr = "1.5px solid var(--success)"; }
           return (
-            <button key={choice} onClick={() => handleAnswer(choice)} disabled={!!feedback}
-              style={{ background: bg, border: bdr, borderRadius: 13, padding: "13px 16px", textAlign: "left", cursor: feedback ? "default" : "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s" }}>
-              <span style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0, color: "var(--text-muted)" }}>{letter}</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{choice}</span>
+            <button key={choice} onClick={() => handleSelect(choice)}
+              style={{
+                background: selected ? "var(--accent-soft)" : "var(--card2)",
+                border: `1.5px solid ${selected ? "var(--accent)" : "var(--border)"}`,
+                borderRadius: 13, padding: "14px 16px", textAlign: "left",
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s",
+              }}>
+              <span style={{
+                width: 28, height: 28, borderRadius: "50%",
+                background: selected ? "var(--accent)" : "var(--border)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 800, flexShrink: 0,
+                color: selected ? "#fff" : "var(--text-muted)",
+              }}>{letter}</span>
+              <span style={{ fontSize: 14, fontWeight: selected ? 700 : 600, color: selected ? "var(--accent)" : "var(--text)" }}>{choice}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Question navigator */}
-      <div style={{ display: "flex", gap: 5, marginTop: 14, flexWrap: "wrap" }}>
+      {isLast ? (
+        <button onClick={handleSubmit}
+          style={{ width: "100%", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 14, padding: "15px 20px", fontSize: 15, fontWeight: 800, cursor: "pointer", marginBottom: 12 }}>
+          Terminer l'examen → ({answeredCount}/{questions.length})
+        </button>
+      ) : (
+        <button onClick={handleNext}
+          style={{ width: "100%", background: answers[current] ? "var(--accent)" : "var(--card2)", color: answers[current] ? "#fff" : "var(--text-muted)", border: `1.5px solid ${answers[current] ? "var(--accent)" : "var(--border)"}`, borderRadius: 14, padding: "15px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s", marginBottom: 12 }}>
+          Question suivante →
+        </button>
+      )}
+
+      {/* Question navigator — neutral, no correct/wrong colors during exam */}
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
         {questions.map((_, i) => (
-          <button key={i} onClick={() => { if (!feedback) setCurrent(i); }}
-            style={{ width: 30, height: 30, borderRadius: 8, border: `1.5px solid ${i === current ? "var(--accent)" : answers[i] ? (answers[i] === questions[i].a ? "var(--success)" : "var(--danger)") : "var(--border)"}`, background: i === current ? "var(--accent-soft)" : answers[i] ? (answers[i] === questions[i].a ? "rgba(16,185,129,0.08)" : "rgba(220,38,38,0.06)") : "transparent", color: i === current ? "var(--accent)" : "var(--text-muted)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-            {i + 1}
+          <button key={i} onClick={() => setCurrent(i)}
+            style={{
+              width: 32, height: 32, borderRadius: 8,
+              border: `1.5px solid ${i === current ? "var(--accent)" : "var(--border)"}`,
+              background: i === current ? "var(--accent-soft)" : answers[i] ? "var(--card2)" : "transparent",
+              color: i === current ? "var(--accent)" : answers[i] ? "var(--text)" : "var(--text-muted)",
+              fontSize: 12, fontWeight: i === current ? 800 : 600, cursor: "pointer",
+            }}>
+            {answers[i] ? "·" : i + 1}
           </button>
         ))}
+      </div>
+      <div style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: "var(--text-muted)" }}>
+        {answeredCount}/{questions.length} réponses
       </div>
     </div>
   );

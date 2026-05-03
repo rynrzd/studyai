@@ -24,16 +24,13 @@ body {
   overflow-x: hidden;
 }
 
-/* ── MOBILE OVERRIDE — force full width on all elements ──────────────────────── */
-@media (max-width: 768px) {
+/* ── MOBILE OVERFLOW GUARD ───────────────────────────────────────────────────── */
+/* Catches any element that slips past the responsive rules */
+@media (max-width: 899px) {
   html, body, #root {
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 100vw !important;
     overflow-x: hidden !important;
-  }
-  * {
-    max-width: 100%;
-    box-sizing: border-box;
   }
 }
 button { cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.18s ease; border: none; touch-action: manipulation; }
@@ -213,12 +210,24 @@ select option { background: var(--card); color: var(--text); }
   /* Main content: full width, no horizontal scroll */
   .sai-main {
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 100vw !important;
     overflow-x: hidden !important;
   }
 
-  /* Larger touch targets */
-  button { min-height: 40px; }
+  /* All direct page containers: never exceed viewport */
+  .sai-main > div {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Grid cells: always shrinkable */
+  .sai-main * {
+    min-width: 0;
+  }
+
+  /* Touch targets — minimum 44px (Apple HIG / WCAG) */
+  button { min-height: 44px !important; }
+  a, [role="button"] { min-height: 44px; }
 
   /* Smooth overscroll inside scrollable areas */
   .sai-scroll {
