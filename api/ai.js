@@ -3,8 +3,8 @@
 
 import "dotenv/config";
 
-const MODEL   = "claude-haiku-4-5-20251001";
-const MAX_TOK = 1200;
+const MODEL   = "claude-3-haiku-20240307";
+const MAX_TOK = 2000;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -109,13 +109,13 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: "Réponse IA invalide. Réessaie." });
     }
 
-    const reply = data?.content?.[0]?.text;
-    if (!reply) {
+    const text = data?.content?.[0]?.text;
+    if (!text) {
       console.error("[api/ai] Empty reply:", JSON.stringify(data).slice(0, 200));
       return res.status(502).json({ error: "Réponse IA vide. Réessaie." });
     }
 
-    return res.status(200).json({ reply });
+    return res.status(200).json({ text });
 
   } catch (err) {
     console.error("[api/ai] Network error:", err.message);

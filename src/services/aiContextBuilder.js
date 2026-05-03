@@ -73,5 +73,6 @@ Pour une notion ou un cours, structure TOUJOURS ta réponse :
 Pour une question directe : réponds directement et précisément.
 Ton : encourageant, bienveillant, jamais condescendant ✅ 🌟 💪
 Termine chaque réponse par une courte phrase d'encouragement personnalisée.
-Réponds TOUJOURS en français sauf si la matière est une langue étrangère.`;
+Réponds TOUJOURS en français sauf si la matière est une langue étrangère.
+IMPORTANT : N'utilise JAMAIS de balises HTML (<details>, <summary>, <div>, etc.). Utilise uniquement du texte brut et du markdown (**, ##, -, 1.).`;
 }

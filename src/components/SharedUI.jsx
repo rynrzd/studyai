@@ -166,14 +166,24 @@ export function Spinner({ size = 20 }) {
 
 // ── formatAI — rendu du texte IA ──────────────────────────────────────────────
 export function fmtAI(text) {
-  return text.split("\n").map((line, i) => {
+  // Strip all HTML tags so they never show as raw text
+  const clean = text
+    .replace(/<details[^>]*>/gi, "")
+    .replace(/<\/details>/gi, "")
+    .replace(/<summary[^>]*>(.*?)<\/summary>/gi, "▸ $1")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<li[^>]*>(.*?)<\/li>/gi, "- $1")
+    .replace(/<\/?(ul|ol|p|div|span|b|strong|em|i|h[1-6]|code|pre|blockquote)[^>]*>/gi, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ");
+
+  return clean.split("\n").map((line, i) => {
     if (!line.trim()) return <div key={i} style={{ height: 5 }} />;
     if (line.startsWith("## ")) return <h3 key={i} style={{ color: "var(--accent)", margin: "12px 0 4px", fontSize: 15, fontWeight: 800 }}>{line.slice(3)}</h3>;
     if (line.startsWith("# "))  return <h2 key={i} style={{ color: "var(--accent)", margin: "14px 0 6px", fontSize: 17, fontWeight: 800 }}>{line.slice(2)}</h2>;
-    if (line.startsWith("- ") || line.startsWith("• ")) return (
+    if (line.startsWith("- ") || line.startsWith("• ") || line.startsWith("▸ ")) return (
       <div key={i} style={{ display: "flex", gap: 9, margin: "3px 0", alignItems: "flex-start" }}>
         <span style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }}>▸</span>
-        <span style={{ color: "var(--text-soft)" }}>{inlineBold(line.slice(2))}</span>
+        <span style={{ color: "var(--text-soft)" }}>{inlineBold(line.replace(/^[-•▸]\s/, ""))}</span>
       </div>
     );
     if (/^\d+\./.test(line)) return <div key={i} style={{ margin: "3px 0", color: "var(--text-soft)" }}>{inlineBold(line)}</div>;

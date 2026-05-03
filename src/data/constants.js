@@ -158,6 +158,21 @@ export const FLASHCARDS_DB = {
     { front:"L'utilitarisme (Mill/Bentham)", back:"Une action est juste si elle maximise\nle bonheur du plus grand nombre\nMorale des conséquences" },
     { front:"La dialectique (Hegel)",        back:"Thèse → Antithèse → Synthèse\nMouvement de la pensée vers la vérité\nContradictons moteurs du progrès" },
   ],
+  ses: [
+    { front:"Le PIB",                        back:"Produit Intérieur Brut — valeur totale des biens et services produits\ndans un pays sur une année\nIndicateur principal de la richesse nationale" },
+    { front:"L'inflation",                   back:"Hausse générale et durable des prix\nMesurée par l'IPC (Indice des Prix à la Consommation)\nErrode le pouvoir d'achat" },
+    { front:"Le chômage",                    back:"Personne sans emploi, disponible et en recherche active\nTaux de chômage = (chômeurs / population active) × 100\nDistinguer : chômage frictionnel, structurel, conjoncturel" },
+    { front:"La socialisation",              back:"Processus par lequel l'individu intègre les normes et valeurs de la société\nSocialisation primaire (famille) et secondaire (école, pairs, médias)" },
+    { front:"Le marché",                     back:"Lieu de rencontre entre l'offre et la demande\nÉquilibre : prix où Qofferte = Qdemandée\nConcurrence pure et parfaite vs monopole" },
+    { front:"Le lien social",                back:"Ensemble des relations qui unissent les individus à la société\nDurkheim : solidarité mécanique (sociétés traditionnelles) vs organique (modernes)" },
+  ],
+  snt: [
+    { front:"Internet",                      back:"Réseau mondial de réseaux informatiques\nProtocoles TCP/IP — adresse IP identifie chaque machine\nWWW ≠ Internet (le Web est un service sur Internet)" },
+    { front:"Le binaire",                    back:"Système en base 2 : uniquement 0 et 1\n1 bit = 0 ou 1 — 1 octet = 8 bits\nConversion : 1010₂ = 1×8 + 0×4 + 1×2 + 0×1 = 10₁₀" },
+    { front:"Algorithme",                    back:"Suite finie d'instructions pour résoudre un problème\nCaractéristiques : précis, fini, déterministe\nExemples : tri, recherche, chiffrement" },
+    { front:"Les données personnelles",      back:"Toute information permettant d'identifier une personne\nRGPD (2018) : droit d'accès, rectification, suppression\nCNIL supervise en France" },
+    { front:"Photographie numérique",        back:"Image = grille de pixels (picture elements)\nRésolution en mégapixels — codage RVB (Rouge Vert Bleu)\nCompression : JPEG (avec perte), PNG (sans perte)" },
+  ],
 };
 
 // ── Défis du jour ─────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 // ─── src/pages/Chat.jsx ───────────────────────────────────────────────────────
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useApp } from "../context/AppContext.jsx";
-import { buildSystemPrompt, callOpenAI, generateExercises, generateRevisionPlan } from "../services/ai.js";
+import { buildSystemPrompt, callOpenAI, generateExercises, generateRevisionPlan, generateAIQuiz } from "../services/ai.js";
 import { buildAIContext } from "../services/aiContextBuilder.js";
 import { ALL_SUBJECTS } from "../services/subjectGenerator.js";
 import { SUBJECTS, CHAT_MODES, RANDOM_QUESTIONS, FLASHCARDS_DB, XP_REWARDS, DAILY_CHALLENGES, BADGES as BADGES_DATA, LEVEL_THRESHOLDS } from "../data/constants.js";
@@ -332,7 +332,7 @@ function LeftNav({ view, setView, currentUser, game, progress, isGuest, isPaid, 
         <button onClick={() => setDark(!dark)} style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--text-soft)", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>{dark ? "☀️ Mode clair" : "🌙 Mode sombre"}</button>
         {currentUser && <button onClick={onSettings} style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--text-soft)", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>⚙️ Paramètres</button>}
         {currentUser && <button onClick={onLogout} style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(220,38,38,0.2)", background: "transparent", color: "var(--danger)", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>🚪 Déconnexion</button>}
-        {isGuest && <Btn primary full onClick={() => { /* setScreen handled in parent */ }} style={{ fontSize: 12 }}>Créer un compte</Btn>}
+        {isGuest && <Btn primary full onClick={() => setScreen("auth")} style={{ fontSize: 12 }}>Créer un compte</Btn>}
       </div>
     </div>
   );
@@ -528,6 +528,21 @@ function FirstNoteInput({ subject, addNote }) {
     </div>
   );
 }
+
+// ─── SUBJECT THEMES FOR AI QUIZ ──────────────────────────────────────────────
+const SUBJECT_THEMES = {
+  maths:    ["Algèbre", "Géométrie", "Fractions", "Fonctions", "Probabilités", "Statistiques", "Racines carrées", "Équations"],
+  francais: ["Conjugaison", "Grammaire", "Orthographe", "Littérature", "Expression écrite", "Vocabulaire", "Figures de style"],
+  hg:       ["Histoire moderne", "Histoire contemporaine", "Géographie", "Géopolitique", "Révolution française", "2ème Guerre mondiale"],
+  svt:      ["Génétique", "Écologie", "Corps humain", "Cellule", "Évolution", "Nutrition", "Reproduction"],
+  physique: ["Mécanique", "Électricité", "Optique", "Chimie", "Thermodynamique", "Ondes", "Réactions chimiques"],
+  anglais:  ["Temps verbaux", "Vocabulaire", "Grammaire", "Compréhension", "Expression", "Phrasal verbs"],
+  philo:    ["Liberté", "Bonheur", "Justice", "Conscience", "Vérité", "L'État", "Autrui", "La raison"],
+  ses:      ["Microéconomie", "Macroéconomie", "Marchés", "Entreprise", "Socialisation", "Stratification", "Mondialisation", "Chômage", "Monnaie"],
+  snt:      ["Internet", "Web", "Réseaux", "Données", "Algorithmes", "Photographie", "Géolocalisation", "IA", "Sécurité informatique"],
+  sciences: ["Physique", "Chimie", "SVT", "Mathématiques", "Informatique"],
+  general:  ["Culture générale", "Actualités", "Sciences", "Histoire", "Géographie", "Arts"],
+};
 
 // ─── DAILY CHALLENGE QUIZ ─────────────────────────────────────────────────────
 const DAILY_LEGACY_MAP = { histoire: "hg", sciences: "svt" };
@@ -1884,13 +1899,203 @@ function BadgesPageView({ game, compact, isPaid, setScreen, isMobile }) {
   );
 }
 
+// ─── AI QUIZ GAME ─────────────────────────────────────────────────────────────
+function AIQuizGame({ defaultSubject, addXP, onBack }) {
+  const { activeSubjects } = useApp();
+  const subjects = activeSubjects.filter(s => s.id !== "general" && !s.noAI);
+
+  const initSubject = defaultSubject || subjects[0]?.id || "maths";
+  const initThemes  = SUBJECT_THEMES[initSubject] || SUBJECT_THEMES.general;
+
+  const [phase, setPhase]     = useState("setup");   // setup | loading | quiz | result
+  const [subject, setSubject] = useState(initSubject);
+  const [theme, setTheme]     = useState(initThemes[0] || "");
+  const [questions, setQs]    = useState([]);
+  const [error, setError]     = useState("");
+  const [idx, setIdx]         = useState(0);
+  const [chosen, setChosen]   = useState(null);
+  const [score, setScore]     = useState(0);
+  const [xpEarned, setXpE]    = useState(0);
+  const usedQs = useRef(new Set());
+
+  const themes = SUBJECT_THEMES[subject] || SUBJECT_THEMES.general;
+  const subjectLabel = subjects.find(s => s.id === subject)?.label || subject;
+
+  const startQuiz = async () => {
+    setError("");
+    setPhase("loading");
+    try {
+      const qs = await generateAIQuiz({ subject: subjectLabel, theme: theme || null, count: 5 });
+      // Filter duplicates
+      const fresh = qs.filter(q => !usedQs.current.has(q.question));
+      const final = fresh.length > 0 ? fresh : qs;
+      setQs(final);
+      setIdx(0); setScore(0); setChosen(null); setXpE(0);
+      setPhase("quiz");
+    } catch (e) {
+      setError(e.message);
+      setPhase("setup");
+    }
+  };
+
+  const handleAnswer = (choice) => {
+    if (chosen) return;
+    setChosen(choice);
+    const correct = choice === questions[idx].correctAnswer;
+    if (correct) { setScore(s => s + 1); addXP(5); setXpE(e => e + 5); }
+    setTimeout(() => {
+      if (idx + 1 >= questions.length) {
+        questions.forEach(q => usedQs.current.add(q.question));
+        setPhase("result");
+      } else {
+        setIdx(i => i + 1);
+        setChosen(null);
+      }
+    }, 1200);
+  };
+
+  const replay = () => {
+    setPhase("setup");
+    setError("");
+    setTheme(themes[0] || "");
+  };
+
+  // ── Setup screen ─────────────────────────────────────────────────────────────
+  if (phase === "setup") return (
+    <div style={{ padding: "0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <button onClick={onBack} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer" }}>← Jeux</button>
+        <span style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 800, fontSize: 15, color: "var(--text)" }}>🤖 Quiz IA</span>
+        <span style={{ width: 40 }} />
+      </div>
+      <div style={{ background: "linear-gradient(135deg,var(--accent-soft),rgba(124,58,237,0.05))", border: "1px solid var(--accent-glow)", borderRadius: 18, padding: "18px 16px", marginBottom: 20 }}>
+        <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text)", marginBottom: 4 }}>Questions générées par l'IA</div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Choisis la matière et le thème · 5 questions · Correction + explication</div>
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text-soft)", marginBottom: 6 }}>Matière</label>
+        <select value={subject} onChange={e => {
+            const newSub = e.target.value;
+            const newThemes = SUBJECT_THEMES[newSub] || SUBJECT_THEMES.general;
+            setSubject(newSub);
+            setTheme(newThemes[0] || "");
+            setError("");
+          }}
+          style={{ width: "100%", background: "var(--card2)", border: "1.5px solid var(--border)", borderRadius: 12, padding: "11px 14px", fontSize: 14, color: "var(--text)", cursor: "pointer" }}>
+          {subjects.map(s => <option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
+        </select>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text-soft)", marginBottom: 6 }}>Thème</label>
+        <select value={theme} onChange={e => { setTheme(e.target.value); setError(""); }}
+          style={{ width: "100%", background: "var(--card2)", border: "1.5px solid var(--border)", borderRadius: 12, padding: "11px 14px", fontSize: 14, color: "var(--text)", cursor: "pointer" }}>
+          {themes.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+
+      {error && (
+        <div style={{ background: "rgba(220,38,38,0.08)", border: "1.5px solid rgba(220,38,38,0.4)", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "var(--danger)", fontWeight: 600, marginBottom: 14, lineHeight: 1.5 }}>
+          ⚠️ {error}
+          <div style={{ marginTop: 6, fontSize: 12, fontWeight: 400, color: "var(--text-muted)" }}>Essaie un autre thème ou réessaie dans quelques secondes.</div>
+        </div>
+      )}
+
+      <button onClick={startQuiz} disabled={!theme}
+        style={{ width: "100%", background: theme ? "linear-gradient(135deg,var(--accent),var(--accent2))" : "var(--border)", color: "#fff", border: "none", borderRadius: 14, padding: "15px 20px", fontSize: 15, fontWeight: 800, cursor: theme ? "pointer" : "not-allowed", opacity: theme ? 1 : 0.6 }}>
+        Générer le quiz →
+      </button>
+    </div>
+  );
+
+  // ── Loading screen ────────────────────────────────────────────────────────────
+  if (phase === "loading") return (
+    <div style={{ textAlign: "center", padding: "48px 16px" }}>
+      <div style={{ width: 44, height: 44, border: "3px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.7s linear infinite", margin: "0 auto 18px" }} />
+      <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)", marginBottom: 6 }}>L'IA génère ton quiz...</div>
+      <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{subjectLabel}{theme ? ` · ${theme}` : ""}</div>
+    </div>
+  );
+
+  // ── Result screen ─────────────────────────────────────────────────────────────
+  if (phase === "result") {
+    const pct = Math.round((score / questions.length) * 100);
+    const emoji = pct >= 80 ? "🏆" : pct >= 60 ? "⭐" : "💪";
+    return (
+      <div style={{ padding: "0" }}>
+        <div style={{ textAlign: "center", padding: "20px 0 18px" }}>
+          <div style={{ fontSize: 52, marginBottom: 10 }}>{emoji}</div>
+          <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 24, color: "var(--text)", marginBottom: 4 }}>{score}/{questions.length}</div>
+          <div style={{ fontSize: 14, color: "var(--warn)", fontWeight: 700, marginBottom: 6 }}>+{xpEarned} XP gagnés !</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{subjectLabel}{theme ? ` · ${theme}` : ""}</div>
+        </div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+          <button onClick={replay} style={{ flex: 1, background: "linear-gradient(135deg,var(--accent),var(--accent2))", color: "#fff", border: "none", borderRadius: 14, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>🔄 Nouveau quiz</button>
+          <button onClick={onBack} style={{ flex: 1, background: "transparent", border: "1.5px solid var(--border)", borderRadius: 14, padding: "13px", fontSize: 14, fontWeight: 700, color: "var(--text-soft)", cursor: "pointer" }}>← Jeux</button>
+        </div>
+        {questions.map((q, i) => {
+          const ok = q.correctAnswer === (i < score + questions.length ? q.correctAnswer : null);
+          return (
+            <div key={i} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 14, padding: "13px 14px", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: "var(--text)", fontWeight: 600, marginBottom: 6, lineHeight: 1.5 }}>Q{i+1}. {q.question}</div>
+              <div style={{ fontSize: 12, color: "var(--success)", fontWeight: 700, marginBottom: q.explanation ? 5 : 0 }}>✓ {q.correctAnswer}</div>
+              {q.explanation && <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>💡 {q.explanation}</div>}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ── Quiz screen ───────────────────────────────────────────────────────────────
+  const q = questions[idx];
+  return (
+    <div style={{ padding: "0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <button onClick={onBack} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer" }}>← Jeux</button>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Question {idx + 1}/{questions.length}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--warn)" }}>⭐ {xpEarned} XP</span>
+      </div>
+      <ProgressBar value={idx + 1} max={questions.length} color="var(--accent)" height={4} />
+      <div style={{ marginBottom: 14 }} />
+      <div style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px", marginBottom: 14 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>🤖 {subjectLabel}{theme ? ` · ${theme}` : ""}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", lineHeight: 1.6 }}>{q.question}</div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {q.choices.map((choice, i) => {
+          const isCorrect = choice === q.correctAnswer;
+          const isChosen  = choice === chosen;
+          const bg     = chosen ? (isCorrect ? "rgba(16,185,129,0.1)" : isChosen ? "rgba(220,38,38,0.08)" : "transparent") : "transparent";
+          const border = chosen ? (isCorrect ? "var(--success)" : isChosen ? "var(--danger)" : "var(--border)") : "var(--border)";
+          const color  = chosen ? (isCorrect ? "var(--success)" : isChosen ? "var(--danger)" : "var(--text-muted)") : "var(--text-soft)";
+          return (
+            <button key={i} onClick={() => handleAnswer(choice)}
+              style={{ padding: "13px 14px", borderRadius: 12, textAlign: "left", fontSize: 13, fontWeight: 600, cursor: chosen ? "default" : "pointer", transition: "all 0.2s", border: `1.5px solid ${border}`, background: bg, color }}>
+              {chosen && isCorrect ? "✅ " : chosen && isChosen ? "❌ " : ""}{choice}
+            </button>
+          );
+        })}
+      </div>
+      {chosen && chosen !== q.correctAnswer && q.explanation && (
+        <div style={{ marginTop: 12, padding: "10px 13px", background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 11 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--success)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Bonne réponse : {q.correctAnswer}</div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>💡 {q.explanation}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── GAMES PAGE VIEW ──────────────────────────────────────────────────────────
 const GAME_CATALOG = [
-  { id: "quiz",    icon: "🎯", label: "Quiz Flash",      desc: "5 questions · QCM sur tes flashcards", xp: 5,   premium: false, color: "#6366f1" },
-  { id: "speed",   icon: "⚡", label: "Speed Quiz",      desc: "15 sec par question · Chrono !",       xp: 8,   premium: true,  color: "#f59e0b" },
-  { id: "tf",      icon: "✅", label: "Vrai ou Faux",    desc: "Rapide · Parfait pour réviser vite",   xp: 4,   premium: true,  color: "#10b981" },
-  { id: "boss",    icon: "🐉", label: "Boss Battle",     desc: "10 questions · +50 XP bonus si 7/10+", xp: 10,  premium: true,  color: "#ef4444" },
-  { id: "match",   icon: "🔗", label: "Associer",        desc: "Relie chaque terme à sa définition",   xp: 6,   premium: true,  color: "#8b5cf6" },
+  { id: "aiquiz", icon: "🤖", label: "Quiz IA",         desc: "Questions générées par l'IA · Choix du thème", xp: 5,  premium: false, color: "#6366f1" },
+  { id: "quiz",   icon: "🎯", label: "Quiz Flash",       desc: "5 questions · QCM sur tes flashcards",         xp: 5,  premium: false, color: "#4f46e5" },
+  { id: "speed",  icon: "⚡", label: "Speed Quiz",       desc: "15 sec par question · Chrono !",               xp: 8,  premium: true,  color: "#f59e0b" },
+  { id: "tf",     icon: "✅", label: "Vrai ou Faux",     desc: "Rapide · Parfait pour réviser vite",           xp: 4,  premium: true,  color: "#10b981" },
+  { id: "boss",   icon: "🐉", label: "Boss Battle",      desc: "10 questions · +50 XP bonus si 7/10+",        xp: 10, premium: true,  color: "#ef4444" },
+  { id: "match",  icon: "🔗", label: "Associer",         desc: "Relie chaque terme à sa définition",           xp: 6,  premium: true,  color: "#8b5cf6" },
 ];
 
 function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
@@ -1900,11 +2105,12 @@ function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
     const onDone = () => setActiveGame(null);
     let GameEl = null;
     // key={subject} forces a full remount whenever subject changes — resets all quiz state
-    if (activeGame === "quiz")  GameEl = <QuizGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} count={5}  />;
-    if (activeGame === "speed") GameEl = <SpeedGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
-    if (activeGame === "tf")    GameEl = <TrueFalseGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
-    if (activeGame === "boss")  GameEl = <BossGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} unlockBadge={() => {}} />;
-    if (activeGame === "match") GameEl = <MatchGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
+    if (activeGame === "aiquiz") GameEl = <AIQuizGame key={subject} defaultSubject={subject} addXP={addXP} onBack={onDone} />;
+    if (activeGame === "quiz")   GameEl = <QuizGame   key={subject} subject={subject} addXP={addXP} onBack={onDone} count={5} />;
+    if (activeGame === "speed")  GameEl = <SpeedGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
+    if (activeGame === "tf")     GameEl = <TrueFalseGame key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
+    if (activeGame === "boss")   GameEl = <BossGame   key={subject} subject={subject} addXP={addXP} onBack={onDone} unlockBadge={() => {}} />;
+    if (activeGame === "match")  GameEl = <MatchGame  key={subject} subject={subject} addXP={addXP} onBack={onDone} />;
     if (GameEl) return (
       <div style={{ padding: isMobile ? "16px 14px 80px" : "28px 24px", maxWidth: isMobile ? "none" : 700, margin: "0 auto", width: "100%" }}>
         {GameEl}
@@ -1968,12 +2174,15 @@ function GamesPageView({ subject, addXP, isPaid, setScreen, isMobile }) {
 }
 
 // ── Shared MCQ quiz used by QuizGame and BossGame ─────────────────────────────
-function buildMCQ(subject, count) {
+function buildMCQ(subject, count, exclude = new Set()) {
   const allCards = Object.values(FLASHCARDS_DB).flat();
   const subCards = (subject && subject !== "general" && FLASHCARDS_DB[subject]?.length > 0)
     ? FLASHCARDS_DB[subject]
     : allCards;
-  const shuffled = [...subCards].sort(() => Math.random() - 0.5);
+  // Filter out already-used cards; reset pool if exhausted
+  const fresh = subCards.filter(c => !exclude.has(c.front));
+  const pool = fresh.length >= count ? fresh : subCards;
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
   const questions = Array.from({ length: count }, (_, i) => shuffled[i % shuffled.length]);
   return questions.map(c => {
     const sameSubWrongs = subCards.filter(x => x.front !== c.front).sort(() => Math.random() - 0.5);
@@ -2041,14 +2250,19 @@ function GameResultScreen({ score, total, xpEarned, onReplay, onBack, title }) {
 
 // ── Game 1: Quiz Flash (FREE) ─────────────────────────────────────────────────
 function QuizGame({ subject, addXP, onBack, count = 5 }) {
-  const [questions, setQs] = useState(() => buildMCQ(subject, count));
+  const usedFronts = useRef(new Set());
+  const [questions, setQs] = useState(() => buildMCQ(subject, count, usedFronts.current));
   const [idx, setIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [chosen, setChosen] = useState(null);
   const [done, setDone] = useState(false);
   const [xpEarned, setXpE] = useState(0);
 
-  const replay = () => { setQs(buildMCQ(subject, count)); setIdx(0); setScore(0); setChosen(null); setDone(false); setXpE(0); };
+  const replay = () => {
+    questions.forEach(q => usedFronts.current.add(q.card.front));
+    setQs(buildMCQ(subject, count, usedFronts.current));
+    setIdx(0); setScore(0); setChosen(null); setDone(false); setXpE(0);
+  };
 
   const handleAnswer = opt => {
     if (chosen) return;

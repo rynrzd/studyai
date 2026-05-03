@@ -23,7 +23,7 @@ async function callClaude({ systemPrompt, messages, imageBase64 }) {
   }
 
   const data = await res.json();
-  return data.reply || "Aucune réponse reçue.";
+  return data.text || "Aucune réponse reçue.";
 }
 
 // Keep export name identical so Chat.jsx requires zero changes
@@ -42,6 +42,51 @@ Adapte la difficulté au niveau ${classe}. Réponds en français uniquement.`;
     systemPrompt: "Tu es un professeur expert qui génère des exercices pédagogiques.",
     messages: [{ role: "user", content: prompt }],
   });
+}
+
+// ── AI Quiz generator ─────────────────────────────────────────────────────────
+export async function generateAIQuiz({ subject, theme, count = 5 }) {
+  const topic = theme ? `${subject} — thème : ${theme}` : subject;
+  const prompt = `Génère ${count} questions de révision en français sur "${topic}".
+
+Réponds UNIQUEMENT avec un tableau JSON valide, sans texte avant ni après :
+[
+  {
+    "question": "La question ici ?",
+    "choices": ["Choix A", "Choix B", "Choix C", "Choix D"],
+    "correctAnswer": "Choix A",
+    "explanation": "Explication courte ici."
+  }
+]
+
+RÈGLES STRICTES :
+- Exactement 4 choix distincts par question
+- correctAnswer doit être EXACTEMENT l'un des 4 choix (copie exacte)
+- Aucun doublon dans les choices
+- Questions adaptées lycée/collège, en français`;
+
+  const raw = await callClaude({
+    systemPrompt: "Tu es un générateur de quiz scolaires. Réponds UNIQUEMENT avec du JSON valide, aucun texte autour.",
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const jsonMatch = raw.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) throw new Error("Réponse IA non formatée en JSON");
+
+  let questions;
+  try { questions = JSON.parse(jsonMatch[0]); }
+  catch { throw new Error("JSON invalide dans la réponse IA"); }
+
+  const valid = questions.filter(q =>
+    typeof q.question === "string" && q.question.length > 0 &&
+    Array.isArray(q.choices) && q.choices.length === 4 &&
+    typeof q.correctAnswer === "string" &&
+    q.choices.includes(q.correctAnswer) &&
+    new Set(q.choices).size === 4
+  );
+
+  if (valid.length < 1) throw new Error("Aucune question valide générée");
+  return valid.slice(0, count);
 }
 
 // ── Revision plan generator ───────────────────────────────────────────────────
