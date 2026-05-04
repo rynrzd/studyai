@@ -60,6 +60,8 @@ export function AppProvider({ children }) {
   const [progress,        setProgress]       = useLS("sai_progress",{});  // { uid: { subject: { avg, sessions, notes[] } } }
   const [gamification,    setGamification]   = useLS("sai_game",    {});  // { uid: { xp, badges[], quizCount, streak } }
   const [profiles,        setProfiles]       = useLS("sai_profiles",{});  // { uid: { level, languages, hasSport, grades } }
+  const [quizStats,       setQuizStats]      = useLS("sai_qstats",  {});  // { uid: { subjectId: { theme: { bonnes, mauvaises, niveau, consec... } } } }
+  const [quizHistory,     setQuizHistory]    = useLS("sai_qhist",   {});  // { uid: string[] } — last 50 question strings
   const [xpPopup,         setXpPopup]        = useState(null); // { amount, x, y }
   const [authMode,        setAuthMode]       = useState("login");
 
@@ -190,6 +192,43 @@ export function AppProvider({ children }) {
     });
   }, [uid, setProgress]);
 
+  // ── Quiz adaptive stats ───────────────────────────────────────────────────
+  const STAT_DEFAULT = { bonnes: 0, mauvaises: 0, niveau: 1, consecutiveCorrect: 0, consecutiveWrong: 0, derniereActivite: null };
+
+  const getQuizStat = useCallback((subjectId, theme) => {
+    return quizStats[uid]?.[subjectId]?.[theme] || STAT_DEFAULT;
+  }, [uid, quizStats]);
+
+  const addQuizStat = useCallback((subjectId, theme, isCorrect) => {
+    setQuizStats(prev => {
+      const cur = prev[uid]?.[subjectId]?.[theme] || STAT_DEFAULT;
+      const updated = {
+        ...cur,
+        bonnes:             cur.bonnes + (isCorrect ? 1 : 0),
+        mauvaises:          cur.mauvaises + (isCorrect ? 0 : 1),
+        consecutiveCorrect: isCorrect ? cur.consecutiveCorrect + 1 : 0,
+        consecutiveWrong:   isCorrect ? 0 : cur.consecutiveWrong + 1,
+        derniereActivite:   Date.now(),
+      };
+      if (updated.consecutiveCorrect >= 3) updated.niveau = Math.min(5, cur.niveau + 1);
+      if (updated.consecutiveWrong   >= 3) updated.niveau = Math.max(1, cur.niveau - 1);
+      return {
+        ...prev,
+        [uid]: { ...(prev[uid] || {}), [subjectId]: { ...(prev[uid]?.[subjectId] || {}), [theme]: updated } },
+      };
+    });
+  }, [uid, setQuizStats]);
+
+  const getQuizHistory = useCallback(() => quizHistory[uid] || [], [uid, quizHistory]);
+
+  const addToQuizHistory = useCallback((questions) => {
+    setQuizHistory(prev => {
+      const cur = prev[uid] || [];
+      const next = [...cur, ...questions].slice(-50);
+      return { ...prev, [uid]: next };
+    });
+  }, [uid, setQuizHistory]);
+
   // ── Gamification — XP + badges ────────────────────────────────────────────
   const getGame = useCallback(() => gamification[uid] || { xp: 0, badges: [], quizCount: 0, streak: 0, lastActive: null }, [uid, gamification]);
 
@@ -305,6 +344,8 @@ export function AppProvider({ children }) {
     isPaid, isFamilyMode, isParentMode,
     // Chat
     getMessages, addMessage, clearMessages,
+    // Adaptive quiz
+    getQuizStat, addQuizStat, getQuizHistory, addToQuizHistory,
     // Progression
     getProgress, addNote, incrementSession,
     // Gamification
@@ -315,6 +356,7 @@ export function AppProvider({ children }) {
     allProfiles: profiles,
     allGameData: gamification,
     allProgress: progress,
+    allChats: chats,
     // Theme
     dark, setDark,
     authMode, setAuthMode,

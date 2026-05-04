@@ -1,21 +1,20 @@
 // ─── src/pages/Onboarding.jsx ─────────────────────────────────────────────────
-// Profile onboarding: level → languages → [specialties for lycée] → sport → grades
-// Triggered once after signup when no profile exists.
+// Onboarding flow:
+//   College / 2nde    : level → languages → sport → grades          (4 steps)
+//   1ère / Terminale  : level → languages → specialties → sport → grades (5 steps)
+//
+// 2nde: subjects are fixed automatically (SES + SNT included, no specialty choice)
+// 1ère/Terminale: specialties step is MANDATORY (minimum 2 required)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
 import { CLASSES } from "../data/constants.js";
-import { LANGUAGE_OPTIONS, generateSubjects } from "../services/subjectGenerator.js";
+import { LANGUAGE_OPTIONS, LYCEE_SPECIALTY_OPTIONS, generateSubjects } from "../services/subjectGenerator.js";
 import { Logo, Btn } from "../components/SharedUI.jsx";
 
-const COLLEGE_CLASSES = ["6e", "5e", "4e", "3e"];
-const LYCEE_CLASSES   = ["2nde", "1ere", "terminale"];
-
-// SNT is mandatory for 2nde (auto-added by generateSubjects) — not a selectable specialty
-const LYCEE_SPECIALTIES = [
-  { id: "ses", label: "SES — Sciences Éco. et Sociales", icon: "📊", levels: ["2nde","1ere","terminale"] },
-];
+const COLLEGE_CLASSES        = ["6e", "5e", "4e", "3e"];
+const LYCEE_WITH_SPEC_CLASSES = ["1ere", "terminale"];
 
 export default function Onboarding() {
   const { currentUser, saveProfile, setScreen, updateUser, activeProfileId } = useApp();
@@ -26,46 +25,38 @@ export default function Onboarding() {
   const [specialties, setSpecialties] = useState([]);
   const [hasSport,    setHasSport]    = useState(false);
   const [grades,      setGrades]      = useState({});
+  const [specError,   setSpecError]   = useState(false);
 
-  const isCollege    = COLLEGE_CLASSES.includes(level);
-  const isLycee      = LYCEE_CLASSES.includes(level);
-  const totalSteps   = isLycee ? 5 : 4;
+  const isLyceeWithSpec = LYCEE_WITH_SPEC_CLASSES.includes(level);
+  const totalSteps      = isLyceeWithSpec ? 5 : 4;
 
-  // Recompute after level changes
+  // Step identities
+  // College/2nde: 1=level 2=languages 3=sport 4=grades
+  // 1ère/Term:    1=level 2=languages 3=specialties 4=sport 5=grades
+  const isSpecStep   = step === 3 && isLyceeWithSpec;
+  const isSportStep  = isLyceeWithSpec ? step === 4 : step === 3;
+  const isGradesStep = isLyceeWithSpec ? step === 5 : step === 4;
+
   const subjects  = generateSubjects({ level, languages, hasSport, specialties });
   const gradeable = subjects.filter(s => !s.noAI && s.id !== "general" && s.id !== "bac");
 
-  const availableSpecialties = LYCEE_SPECIALTIES.filter(s => s.levels.includes(level));
-
-  const toggleLanguage = (id) => {
-    setLanguages(prev => prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]);
+  const handleLevelChange = (v) => {
+    setLevel(v);
+    setSpecialties([]);
+    setSpecError(false);
   };
 
-  const toggleSpecialty = (id) => {
-    setSpecialties(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
-  };
+  const toggleLanguage  = (id) => setLanguages(prev => prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]);
+  const toggleSpecialty = (id) => { setSpecialties(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]); setSpecError(false); };
+  const setGrade = (id, val) => setGrades(prev => ({ ...prev, [id]: val }));
 
-  const setGrade = (id, val) => {
-    setGrades(prev => ({ ...prev, [id]: val }));
-  };
-
-  // Step routing — lycée has an extra specialties step (step 3)
-  const nextStep = () => {
-    if (step === 2 && isLycee) { setStep(3); return; }   // languages → specialties
-    if (step === 2 && isCollege) { setStep(3); return; }  // languages → sport (step 3 for both but step 3 = sport for college)
+  const goNext = () => {
+    if (isSpecStep) {
+      if (specialties.length < 2) { setSpecError(true); return; }
+    }
     setStep(s => s + 1);
   };
-  const prevStep = () => {
-    if (step === 3 && isLycee) { setStep(2); return; }   // specialties → languages
-    if (step === 4 && isLycee) { setStep(3); return; }   // sport → specialties
-    setStep(s => s - 1);
-  };
-
-  // Step numbers relative to UI labels
-  // College:  1=level, 2=languages, 3=sport, 4=grades
-  // Lycée:    1=level, 2=languages, 3=specialties, 4=sport, 5=grades
-  const isSportStep  = isLycee ? step === 4 : step === 3;
-  const isGradesStep = isLycee ? step === 5 : step === 4;
+  const goPrev = () => setStep(s => s - 1);
 
   const finish = (skip = false) => {
     saveProfile({ level, languages, specialties, hasSport, grades: skip ? {} : grades });
@@ -83,7 +74,7 @@ export default function Onboarding() {
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <Logo />
           <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-muted)" }}>
-            Configuration rapide — étape {step} sur {totalSteps}
+            Configuration — étape {step} sur {totalSteps}
           </div>
         </div>
 
@@ -92,19 +83,18 @@ export default function Onboarding() {
           <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg,var(--accent),var(--accent2))", transition: "width 0.4s ease", borderRadius: 4 }} />
         </div>
 
-        {/* Card */}
         <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 24, padding: "28px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.07)" }}>
 
-          {/* ── STEP 1 : Level ───────────────────────────────────────────────── */}
+          {/* ── STEP 1 : Level ─────────────────────────────────────────────── */}
           {step === 1 && (
             <div>
               <div style={{ fontSize: 24, marginBottom: 6, textAlign: "center" }}>🎓</div>
               <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 20, color: "var(--text)", textAlign: "center", marginBottom: 6 }}>Tu es en quelle classe ?</div>
-              <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 22 }}>L'IA adaptera ses explications à ton niveau exactement</div>
+              <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 22 }}>L'IA adapte ses explications à ton niveau exactement</div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {CLASSES.filter(c => c.v !== "prof").map(c => (
-                  <button key={c.v} onClick={() => setLevel(c.v)}
+                  <button key={c.v} onClick={() => handleLevelChange(c.v)}
                     style={{ padding: "12px 16px", borderRadius: 14, border: `2px solid ${level === c.v ? "var(--accent)" : "var(--border)"}`, background: level === c.v ? "var(--accent-soft)" : "transparent", color: level === c.v ? "var(--accent)" : "var(--text-soft)", fontWeight: level === c.v ? 700 : 500, fontSize: 14, cursor: "pointer", textAlign: "left", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <span>{c.l}</span>
                     {level === c.v && <span style={{ fontSize: 16 }}>✓</span>}
@@ -118,7 +108,7 @@ export default function Onboarding() {
             </div>
           )}
 
-          {/* ── STEP 2 : Languages ───────────────────────────────────────────── */}
+          {/* ── STEP 2 : Languages ─────────────────────────────────────────── */}
           {step === 2 && (
             <div>
               <div style={{ fontSize: 24, marginBottom: 6, textAlign: "center" }}>🌍</div>
@@ -136,54 +126,67 @@ export default function Onboarding() {
                 ))}
               </div>
 
+              {/* 2nde info banner */}
+              {level === "2nde" && (
+                <div style={{ background: "var(--accent-soft)", border: "1px solid var(--accent)", borderRadius: 12, padding: "10px 14px", fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>📚</span>
+                  <span>En 2nde, tes matières sont définies automatiquement (SES + SNT inclus)</span>
+                </div>
+              )}
+
               <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", marginBottom: 16 }}>Aucune sélection si tu n'étudies qu'anglais</div>
 
               <div style={{ display: "flex", gap: 10 }}>
-                <Btn ghost onClick={() => setStep(1)}>← Retour</Btn>
-                <Btn primary full onClick={nextStep}>Continuer →</Btn>
+                <Btn ghost onClick={goPrev}>← Retour</Btn>
+                <Btn primary full onClick={goNext}>Continuer →</Btn>
               </div>
             </div>
           )}
 
-          {/* ── STEP 3 (lycée only) : Specialties ───────────────────────────── */}
-          {step === 3 && isLycee && (
+          {/* ── STEP 3 (1ère/Terminale only) : Required specialties ────────── */}
+          {isSpecStep && (
             <div>
               <div style={{ fontSize: 24, marginBottom: 6, textAlign: "center" }}>🗂️</div>
-              <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 20, color: "var(--text)", textAlign: "center", marginBottom: 6 }}>Tes matières spéciales</div>
-              <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 22 }}>Coche les matières supplémentaires que tu étudies</div>
+              <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 20, color: "var(--text)", textAlign: "center", marginBottom: 4 }}>Choisis tes spécialités</div>
+              <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 8 }}>
+                {level === "terminale" ? "Terminale : 2 spécialités" : "1ère : 3 spécialités"}
+              </div>
 
-              {availableSpecialties.length === 0 ? (
-                <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 13, padding: "20px 0" }}>
-                  Aucune matière spéciale pour ton niveau.
+              {/* Required badge */}
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+                <div style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>
+                  {specialties.length} / {level === "terminale" ? "2-3" : "3"} sélectionnée{specialties.length > 1 ? "s" : ""}
                 </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-                  {availableSpecialties.map(sp => (
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+                {LYCEE_SPECIALTY_OPTIONS.map(sp => {
+                  const sel = specialties.includes(sp.id);
+                  return (
                     <button key={sp.id} onClick={() => toggleSpecialty(sp.id)}
-                      style={{ padding: "14px 16px", borderRadius: 14, border: `2px solid ${specialties.includes(sp.id) ? "var(--accent)" : "var(--border)"}`, background: specialties.includes(sp.id) ? "var(--accent-soft)" : "transparent", color: specialties.includes(sp.id) ? "var(--accent)" : "var(--text-soft)", fontWeight: specialties.includes(sp.id) ? 700 : 500, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s" }}>
+                      style={{ padding: "14px 16px", borderRadius: 14, border: `2px solid ${sel ? "var(--accent)" : "var(--border)"}`, background: sel ? "var(--accent-soft)" : "transparent", color: sel ? "var(--accent)" : "var(--text-soft)", fontWeight: sel ? 700 : 500, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s" }}>
                       <span style={{ fontSize: 22 }}>{sp.icon}</span>
                       <span style={{ flex: 1, textAlign: "left" }}>{sp.label}</span>
-                      {specialties.includes(sp.id) && <span style={{ fontSize: 16 }}>✓</span>}
+                      {sel && <span style={{ fontSize: 16 }}>✓</span>}
                     </button>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
 
-              {level === "2nde" && (
-                <div style={{ background: "var(--accent-soft)", border: "1px solid var(--accent)", borderRadius: 12, padding: "10px 14px", fontSize: 12, color: "var(--accent)", fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span>💡</span><span>SNT est déjà inclus automatiquement pour la 2nde</span>
+              {specError && (
+                <div style={{ background: "rgba(220,38,38,0.08)", border: "1.5px solid rgba(220,38,38,0.35)", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "var(--danger)", fontWeight: 600, marginBottom: 12 }}>
+                  ⚠️ Choisis au moins 2 spécialités pour continuer.
                 </div>
               )}
-              <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", marginBottom: 16 }}>Ces matières supplémentaires s'ajouteront à ton profil</div>
 
               <div style={{ display: "flex", gap: 10 }}>
-                <Btn ghost onClick={() => setStep(2)}>← Retour</Btn>
-                <Btn primary full onClick={() => setStep(4)}>Continuer →</Btn>
+                <Btn ghost onClick={goPrev}>← Retour</Btn>
+                <Btn primary full onClick={goNext}>Continuer →</Btn>
               </div>
             </div>
           )}
 
-          {/* ── SPORT STEP (step 3 for college, step 4 for lycée) ────────────── */}
+          {/* ── SPORT STEP ─────────────────────────────────────────────────── */}
           {isSportStep && (
             <div>
               <div style={{ fontSize: 24, marginBottom: 6, textAlign: "center" }}>⚽</div>
@@ -191,7 +194,7 @@ export default function Onboarding() {
               <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 24 }}>Pour suivre ta note d'EPS (pas de cours IA)</div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                {[{ v: true, icon: "✅", label: "Oui, je fais du sport" }, { v: false, icon: "❌", label: "Non, pas de sport" }].map(opt => (
+                {[{ v: true, icon: "✅", label: "Oui" }, { v: false, icon: "❌", label: "Non" }].map(opt => (
                   <button key={String(opt.v)} onClick={() => setHasSport(opt.v)}
                     style={{ padding: "18px 14px", borderRadius: 16, border: `2px solid ${hasSport === opt.v ? "var(--accent)" : "var(--border)"}`, background: hasSport === opt.v ? "var(--accent-soft)" : "transparent", color: hasSport === opt.v ? "var(--accent)" : "var(--text-soft)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all 0.15s" }}>
                     <span style={{ fontSize: 24 }}>{opt.icon}</span>
@@ -201,20 +204,20 @@ export default function Onboarding() {
               </div>
 
               <div style={{ display: "flex", gap: 10 }}>
-                <Btn ghost onClick={prevStep}>← Retour</Btn>
-                <Btn primary full onClick={() => setStep(isLycee ? 5 : 4)}>Continuer →</Btn>
+                <Btn ghost onClick={goPrev}>← Retour</Btn>
+                <Btn primary full onClick={goNext}>Continuer →</Btn>
               </div>
             </div>
           )}
 
-          {/* ── GRADES STEP (step 4 for college, step 5 for lycée) ───────────── */}
+          {/* ── GRADES STEP ────────────────────────────────────────────────── */}
           {isGradesStep && (
             <div>
               <div style={{ fontSize: 24, marginBottom: 6, textAlign: "center" }}>📊</div>
               <div style={{ fontFamily: "Space Grotesk,sans-serif", fontWeight: 900, fontSize: 20, color: "var(--text)", textAlign: "center", marginBottom: 6 }}>Tes moyennes actuelles</div>
               <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 20 }}>Optionnel — l'IA s'adapte à tes points forts et faibles</div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, maxHeight: 260, overflowY: "auto" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, maxHeight: 280, overflowY: "auto" }}>
                 {gradeable.map(s => (
                   <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--card2)", borderRadius: 12, padding: "10px 14px" }}>
                     <span style={{ fontSize: 18, width: 26, textAlign: "center" }}>{s.icon}</span>
@@ -238,7 +241,7 @@ export default function Onboarding() {
               </div>
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <Btn ghost onClick={prevStep}>← Retour</Btn>
+                <Btn ghost onClick={goPrev}>← Retour</Btn>
                 <button onClick={() => finish(true)}
                   style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", padding: "8px 12px" }}>
                   Passer

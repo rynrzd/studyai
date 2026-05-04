@@ -3,7 +3,7 @@
 
 import "dotenv/config";
 
-const MODEL   = "claude-3-haiku-20240307";
+const MODEL   = "claude-haiku-4-5-20251001";
 const MAX_TOK = 2000;
 
 export default async function handler(req, res) {
@@ -97,8 +97,10 @@ export default async function handler(req, res) {
     const raw = await response.text();
 
     if (!response.ok) {
-      console.error("[api/ai] Anthropic error", response.status, raw.slice(0, 400));
-      return res.status(502).json({ error: "Service IA temporairement indisponible. Réessaie dans quelques secondes." });
+      let detail = raw.slice(0, 400);
+      try { detail = JSON.parse(raw)?.error?.message || detail; } catch {}
+      console.error("[api/ai] Anthropic error", response.status, detail);
+      return res.status(502).json({ error: `Service IA indisponible (${response.status}). Réessaie.` });
     }
 
     let data;

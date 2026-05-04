@@ -158,6 +158,20 @@ export const FLASHCARDS_DB = {
     { front:"L'utilitarisme (Mill/Bentham)", back:"Une action est juste si elle maximise\nle bonheur du plus grand nombre\nMorale des conséquences" },
     { front:"La dialectique (Hegel)",        back:"Thèse → Antithèse → Synthèse\nMouvement de la pensée vers la vérité\nContradictons moteurs du progrès" },
   ],
+  hggsp: [
+    { front:"Puissance mondiale",        back:"État qui influence les affaires mondiales\nDimensions : militaire, économique, culturelle, diplomatique\nEx: USA (hard power), France (soft power culturel)" },
+    { front:"La Guerre froide",          back:"1947–1991 : opposition USA vs URSS\nPas de conflit direct — guerre idéologique et course aux armements\nFin : chute du Mur de Berlin (1989) + dissolution URSS (1991)" },
+    { front:"L'ONU",                     back:"Organisation des Nations Unies — fondée en 1945\nObjectifs : paix, sécurité, droits humains\nConseil de Sécurité : 5 membres permanents avec droit de veto" },
+    { front:"Géopolitique",              back:"Étude des relations entre États selon leur géographie\nConcepts clés : territoire, ressources, frontières, influence\nActeurs : États, ONG, multinationales, organisations internationales" },
+    { front:"La mondialisation",         back:"Intégration économique, culturelle et politique mondiale\nAccélérée depuis 1990 (chute URSS + essor d'internet)\nTrois pôles : Amérique du Nord · Europe · Asie-Pacifique" },
+  ],
+  nsi: [
+    { front:"Variable en Python",        back:"age = 18  # int\nnom = \"Alice\"  # str\npi = 3.14  # float\nactif = True  # bool\nTypage dynamique — le type est détecté automatiquement" },
+    { front:"Boucle for en Python",      back:"for i in range(5):  # 0,1,2,3,4\n    print(i)\nfor item in liste:\n    print(item)\nItère sur une séquence d'éléments" },
+    { front:"Algorithme de tri",         back:"Tri par sélection : O(n²)\nTri rapide (quicksort) : O(n log n) en moyenne\nTri fusion : O(n log n) garanti\nObjectif : ordonner une liste en ordre croissant" },
+    { front:"Protocole HTTP",            back:"HyperText Transfer Protocol\nRequête client → réponse serveur\nMéthodes : GET (lire), POST (envoyer), PUT, DELETE\nHTTPS = HTTP + chiffrement TLS" },
+    { front:"Base de données",           back:"Ensemble structuré de données\nSGBD : MySQL, PostgreSQL, SQLite\nSQL : SELECT * FROM table WHERE condition\nClé primaire identifie chaque enregistrement de façon unique" },
+  ],
   ses: [
     { front:"Le PIB",                        back:"Produit Intérieur Brut — valeur totale des biens et services produits\ndans un pays sur une année\nIndicateur principal de la richesse nationale" },
     { front:"L'inflation",                   back:"Hausse générale et durable des prix\nMesurée par l'IPC (Indice des Prix à la Consommation)\nErrode le pouvoir d'achat" },

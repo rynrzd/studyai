@@ -45,9 +45,21 @@ Adapte la difficulté au niveau ${classe}. Réponds en français uniquement.`;
 }
 
 // ── AI Quiz generator ─────────────────────────────────────────────────────────
-export async function generateAIQuiz({ subject, theme, count = 5 }) {
+const DIFF_LABELS = {
+  1: "QCM simples — définitions et connaissances de base",
+  2: "QCM avec pièges — notions intermédiaires, confusions classiques",
+  3: "Réflexion et analyse — application des concepts, raisonnement logique",
+};
+
+export async function generateAIQuiz({ subject, theme, count = 5, difficulty = 1, excludeQuestions = [] }) {
   const topic = theme ? `${subject} — thème : ${theme}` : subject;
+  const diffLabel = DIFF_LABELS[difficulty] || DIFF_LABELS[1];
+  const excludeClause = excludeQuestions.length > 0
+    ? `\n\nÉVITE ces questions déjà posées (ne les répète pas) :\n${excludeQuestions.slice(-15).map(q => `- ${q}`).join("\n")}`
+    : "";
+
   const prompt = `Génère ${count} questions de révision en français sur "${topic}".
+Niveau de difficulté : ${difficulty}/3 — ${diffLabel}${excludeClause}
 
 Réponds UNIQUEMENT avec un tableau JSON valide, sans texte avant ni après :
 [
@@ -63,7 +75,8 @@ RÈGLES STRICTES :
 - Exactement 4 choix distincts par question
 - correctAnswer doit être EXACTEMENT l'un des 4 choix (copie exacte)
 - Aucun doublon dans les choices
-- Questions adaptées lycée/collège, en français`;
+- Questions adaptées lycée/collège, en français
+- Respecte le niveau de difficulté demandé`;
 
   const raw = await callClaude({
     systemPrompt: "Tu es un générateur de quiz scolaires. Réponds UNIQUEMENT avec du JSON valide, aucun texte autour.",
